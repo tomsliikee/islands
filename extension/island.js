@@ -277,6 +277,7 @@ export class Island {
     }
 
     update() {
+        this._checkHover();
         const now = Date.now();
         const before = this._state;
         const state = this.state(now);
@@ -346,10 +347,27 @@ export class Island {
         return this._hovered && this._held === activity.id;
     }
 
+    // St keeps `hover` set while the island is hidden (Lantern grown out
+    // of it) or while a modal grab holds the pointer (the quick note), so
+    // it may still be set once the pointer has long gone. Before each
+    // state the pointer is asked where it really is; a stale hover is
+    // dropped and would otherwise flash the hover look or the glance.
+    _checkHover() {
+        if (!this._hovered || this.view.pointerInside())
+            return;
+        this._setHovered(false);
+        this.view.clearHover();
+    }
+
     _hover(hovered) {
         hovered = this.view.hovered || hovered;
         if (hovered === this._hovered)
             return;
+        this._setHovered(hovered);
+        this.update();
+    }
+
+    _setHovered(hovered) {
         this._hovered = hovered;
         const main = this._state?.main;
         this._held = hovered && this._state?.mode === 'opened' && (main?.hint || main?.opensFor) ? main.id : null;
@@ -368,7 +386,6 @@ export class Island {
                 return GLib.SOURCE_REMOVE;
             });
         }
-        this.update();
     }
 
     _click(button) {

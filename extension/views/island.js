@@ -75,6 +75,22 @@ export class IslandView {
         return this.shape.hover || this._bubbles.some(bubble => bubble.actor.hover);
     }
 
+    // Whether the pointer is over the shown island or a bubble now.
+    pointerInside() {
+        if (!this._shown || !this.shape.reactive)
+            return false;
+        const [x, y] = global.get_pointer();
+        const target = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, x, y);
+        return Boolean(target) && (this.shape.contains(target) || this._bubbles.some(bubble => bubble.actor.contains(target)));
+    }
+
+    // Forgets a hover St kept from before; the next enter sets it anew.
+    clearHover() {
+        this.shape.hover = false;
+        for (const bubble of this._bubbles)
+            bubble.actor.hover = false;
+    }
+
     // Blur My Shell's blur behind the shape and the bubbles, or plain black.
     setBlur(on) {
         if (on === this._blurOn)
