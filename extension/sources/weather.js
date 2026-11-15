@@ -4,10 +4,22 @@
 // comes within the hour; the glance shows the temperature and the sky.
 
 
+import GWeather from 'gi://GWeather?version=4.0';
+
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import {newRain, rainSoon} from '../lib/weather.js';
+import {cleanSky, glanceText, nearest, newRain, rainSoon} from '../lib/weather.js';
 import {rainText} from '../lib/words.js';
+
+const UNIT = GWeather.TemperatureUnit.DEFAULT;
+
+// A GWeather.Info's temperature (null when it has none) and sky ('' when
+// it has none).
+function reading(info) {
+    const [hasTemp, temp] = info.get_value_temp(UNIT);
+    const [hasSky] = info.get_value_sky();
+    return {temp: hasTemp ? temp : null, sky: hasSky ? cleanSky(info.get_sky()) : ''};
+}
 
 export class WeatherSource {
     constructor(island) {
@@ -29,10 +41,21 @@ export class WeatherSource {
         const info = this._info();
         if (!info || !this._island.allows('weather'))
             return null;
-        const temperature = info.get_temp_summary?.() ?? '';
-        const sky = info.get_sky?.() || info.get_conditions?.() || '';
-        const rain = this._rain !== null ? (this._rain === 0 ? 'raining' : `rain in ${this._rain} min`) : '';
-        return {icon: info.get_symbolic_icon_name(), text: [temperature, sky, rain].filter(text => text && text !== '-').join(' · ')};
+        // The station's own reading when it has one, else the forecast
+        // for this hour (the temperature in GWeather's unit, as GNOME's
+        // date menu shows it).
+        const own = reading(info);
+        const forecast = own.temp !== null && own.sky ? null : nearest(Date.now(), this._forecasts(info))?.forecast;
+        const guess = forecast ? reading(forecast) : {temp: null, sky: ''};
+        const text = glanceText({temp: own.temp ?? guess.temp, sky: own.sky || guess.sky, rainIn: this._rain});
+        return text ? {icon: info.get_symbolic_icon_name(), text} : null;
+    }
+
+    _forecasts(info) {
+        return (info.get_forecast_list?.() ?? []).map(forecast => {
+            const [valid, timestamp] = forecast.get_value_update();
+            return valid && timestamp > 0 ? {at: timestamp * 1000, icon: forecast.get_symbolic_icon_name(), forecast} : null;
+        }).filter(Boolean);
     }
 
     _changed(first = false) {
@@ -40,10 +63,7 @@ export class WeatherSource {
         if (!info)
             return;
         const now = Date.now();
-        const forecasts = (info.get_forecast_list?.() ?? []).map(forecast => {
-            const [valid, timestamp] = forecast.get_value_update();
-            return valid ? {at: timestamp * 1000, icon: forecast.get_symbolic_icon_name()} : null;
-        }).filter(Boolean);
+        const forecasts = this._forecasts(info);
         const before = this._rain;
         this._rain = rainSoon(now, info.get_symbolic_icon_name(), forecasts);
         if (first || !newRain(before, this._rain) || !this._island.allows('weather'))

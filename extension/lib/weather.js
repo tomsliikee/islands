@@ -29,3 +29,36 @@ export function rainSoon(now, current, forecasts, withinMin = 60) {
 export function newRain(before, after) {
     return after !== null && (before === null || before === undefined);
 }
+
+// The forecast entry closest to now ([{at (ms), ...}]), or null when none
+// lies within `withinMin`. Stands in for current readings a station did
+// not give (met.no gives forecasts only; METAR often leaves the sky out).
+export function nearest(now, entries, withinMin = 90) {
+    let best = null;
+    for (const entry of entries ?? []) {
+        const distance = Math.abs(entry.at - now);
+        if (distance <= withinMin * 60000 && (!best || distance < Math.abs(best.at - now)))
+            best = entry;
+    }
+    return best;
+}
+
+// The glance line: "3° · Clear sky · rain in 20 min". The temperature is a
+// bare degree in GWeather's unit, as GNOME's date menu shows it.
+export function glanceText({temp = null, sky = '', rainIn = null}) {
+    const parts = [];
+    if (Number.isFinite(temp))
+        parts.push(`${Math.round(temp)}°`);
+    if (sky)
+        parts.push(sky);
+    if (rainIn !== null)
+        parts.push(rainIn === 0 ? 'raining' : `rain in ${rainIn} min`);
+    return parts.join(' · ');
+}
+
+// GWeather's sky text, or '' for its placeholders ("-", "unknown",
+// "invalid").
+export function cleanSky(text) {
+    const sky = (text ?? '').trim();
+    return /^(-+|unknown|invalid)$/i.test(sky) ? '' : sky;
+}

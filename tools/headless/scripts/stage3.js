@@ -29,7 +29,7 @@ export default async function ({extension, island, settings, shot, sleep, note, 
     const now = Date.now() / 1000;
     let sky = 'weather-clear-symbolic';
     const info = {
-        is_valid: () => true, get_symbolic_icon_name: () => sky, get_temp_summary: () => '12 °C', get_sky: () => 'Clear sky',
+        is_valid: () => true, get_symbolic_icon_name: () => sky, get_value_temp: () => [true, 12], get_value_sky: () => [true, 0], get_sky: () => 'Clear sky',
         get_forecast_list: () => [{get_value_update: () => [true, now + 25 * 60], get_symbolic_icon_name: () => 'weather-showers-symbolic'}],
     };
     weather._client = {available: true, loading: false, hasLocation: true, info};
