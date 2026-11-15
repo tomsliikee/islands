@@ -1,0 +1,7 @@
+{
+    "uuid": "islands@thomashaiden",
+    "name": "Islands",
+    "description": "A Dynamic Island in the top bar, in the manner of the 2026 MacBook Pro: music, volume, notifications, timers and more grow out of a black pill in the middle of the bar.",
+    "shell-version": ["50"],
+    "settings-schema": "org.gnome.shell.extensions.islands"
+}

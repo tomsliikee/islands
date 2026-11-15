@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <enum id="org.gnome.shell.extensions.islands.style">
+    <value nick="auto" value="0"/>
+    <value nick="black" value="1"/>
+  </enum>
+  <enum id="org.gnome.shell.extensions.islands.size">
+    <value nick="small" value="0"/>
+    <value nick="standard" value="1"/>
+    <value nick="large" value="2"/>
+  </enum>
+  <enum id="org.gnome.shell.extensions.islands.idle">
+    <value nick="shape" value="0"/>
+    <value nick="hidden" value="1"/>
+  </enum>
+  <enum id="org.gnome.shell.extensions.islands.click">
+    <value nick="open" value="0"/>
+    <value nick="app" value="1"/>
+  </enum>
+  <enum id="org.gnome.shell.extensions.islands.fullscreen">
+    <value nick="activities" value="0"/>
+    <value nick="off" value="1"/>
+  </enum>
+  <enum id="org.gnome.shell.extensions.islands.alert-length">
+    <value nick="short" value="0"/>
+    <value nick="normal" value="1"/>
+    <value nick="long" value="2"/>
+  </enum>
+
+  <schema id="org.gnome.shell.extensions.islands" path="/org/gnome/shell/extensions/islands/">
+    <!-- Look -->
+    <key name="style" enum="org.gnome.shell.extensions.islands.style">
+      <default>'auto'</default>
+      <summary>Style</summary>
+      <description>auto: Blur My Shell's blur while it is enabled, else black. black: always black.</description>
+    </key>
+    <key name="size" enum="org.gnome.shell.extensions.islands.size">
+      <default>'standard'</default>
+      <summary>Size</summary>
+      <description>The pill's height: 4 px lower, the bar's height minus 6 px, or 4 px taller.</description>
+    </key>
+    <key name="idle" enum="org.gnome.shell.extensions.islands.idle">
+      <default>'shape'</default>
+      <summary>While nothing goes on</summary>
+      <description>shape: the black pill rests in the bar. hidden: nothing shows until something goes on.</description>
+    </key>
+    <key name="bubbles" type="i">
+      <range min="0" max="10"/>
+      <default>3</default>
+      <summary>Bubbles beside the island</summary>
+      <description>How many other running things sit beside the island; when more run, the last bubble counts the rest.</description>
+    </key>
+
+    <!-- Behaviour -->
+    <key name="click" enum="org.gnome.shell.extensions.islands.click">
+      <default>'open'</default>
+      <summary>Click on the island</summary>
+      <description>open: opens the activity below the bar. app: opens its app where it has one.</description>
+    </key>
+    <key name="hover-glance" type="b">
+      <default>true</default>
+      <summary>Glance on hover</summary>
+      <description>The empty island grows to show the next event, weather and stats while the pointer is on it.</description>
+    </key>
+    <key name="hover-open" type="b">
+      <default>false</default>
+      <summary>Open on hover</summary>
+      <description>A running activity opens after 400 ms under the pointer, without a click.</description>
+    </key>
+    <key name="pointer-pull" type="b">
+      <default>true</default>
+      <summary>Pointer pull</summary>
+      <description>The pointer is drawn in slightly under the island, as on the MacBook.</description>
+    </key>
+    <key name="notifications" type="b">
+      <default>true</default>
+      <summary>Notifications in the island</summary>
+      <description>Replaces GNOME's banners at the top.</description>
+    </key>
+    <key name="osd" type="b">
+      <default>true</default>
+      <summary>Volume and brightness in the island</summary>
+      <description>Replaces GNOME's on-screen display at the bottom.</description>
+    </key>
+    <key name="fullscreen" enum="org.gnome.shell.extensions.islands.fullscreen">
+      <default>'activities'</default>
+      <summary>In fullscreen</summary>
+      <description>activities: running things float 6 px below the edge, the empty island hides. off: nothing shows.</description>
+    </key>
+    <key name="alert-length" enum="org.gnome.shell.extensions.islands.alert-length">
+      <default>'normal'</default>
+      <summary>Length of short messages</summary>
+      <description>How long a notification (5 s), a call (6 s) or a file request (8 s) stays open: 0.6x, 1x or 1.6x.</description>
+    </key>
+
+    <!-- Activities -->
+    <key name="disabled-sources" type="as">
+      <default>['clipboard']</default>
+      <summary>Sources switched off</summary>
+      <description>Names of activity sources that do not show in the island.</description>
+    </key>
+
+    <key name="quick-note-file" type="s">
+      <default>''</default>
+      <summary>Quick note file</summary>
+      <description>A Markdown file a right click on the empty island adds a line to. Empty: no quick notes.</description>
+    </key>
+
+    <!-- Lantern -->
+    <key name="lantern" type="b">
+      <default>true</default>
+      <summary>Open Lantern from the island</summary>
+      <description>A click on the empty island grows Lantern out of it; without Lantern it opens the overview.</description>
+    </key>
+
+    <!-- Power -->
+    <key name="calm-on-battery" type="b">
+      <default>true</default>
+      <summary>Calm on battery</summary>
+      <description>On battery the island sets its sizes without springs and its level does not move.</description>
+    </key>
+    <key name="level-animation" type="b">
+      <default>true</default>
+      <summary>Level animation</summary>
+      <description>The level beside the music moves while it plays.</description>
+    </key>
+  </schema>
+</schemalist>

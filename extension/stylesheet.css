@@ -1,0 +1,271 @@
+/* Islands. Colours are Insights Mono's dark tokens (lib/tokens.js): the
+   island is always dark, as on the Mac. Black without Blur My Shell; with
+   it, the dark bar colour over Blur My Shell's blur (views/blur.js sets
+   the exact alpha from Blur My Shell's own opacity). */
+
+.islands-shape,
+.islands-bubble {
+    background-color: #000000;
+    color: #f5f5f7;
+    font-family: Inter, sans-serif;
+}
+
+.islands-shape.islands-blurred,
+.islands-bubble.islands-blurred {
+    background-color: rgba(28, 28, 30, 0.5);
+}
+
+.islands-bubble {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.islands-bubble-icon {
+    icon-size: 14px;
+}
+
+.islands-compact {
+    padding: 0 12px 0 8px;
+    spacing: 8px;
+}
+
+.islands-compact-icon {
+    icon-size: 15px;
+}
+
+.islands-compact-title {
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.islands-opened {
+    padding: 0 22px 0 18px;
+    spacing: 14px;
+}
+
+.islands-opened-icon {
+    icon-size: 26px;
+}
+
+.islands-opened-art {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    background-color: #26262a;
+}
+
+.islands-opened-title {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.islands-opened-note {
+    font-size: 13px;
+    color: #a1a1a6;
+}
+
+.islands-opened-time {
+    font-size: 11px;
+    color: #636366;
+}
+
+/* Shared parts */
+.islands-round {
+    background-color: #26262a;
+    color: #f5f5f7;
+}
+
+.islands-round:hover {
+    background-color: #2c2c30;
+}
+
+.islands-round-up {
+    background-color: #7fd99a;
+    color: #000000;
+}
+
+.islands-round-down {
+    background-color: #ff8a80;
+    color: #000000;
+}
+
+.islands-round-plain {
+    background-color: transparent;
+}
+
+.islands-round-plain:hover {
+    background-color: #26262a;
+}
+
+.islands-round-icon {
+    icon-size: 20px;
+}
+
+.islands-round-icon-small {
+    icon-size: 12px;
+}
+
+.islands-action {
+    height: 36px;
+    border-radius: 18px;
+    background-color: #26262a;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.islands-action:hover {
+    background-color: #2c2c30;
+}
+
+.islands-bar {
+    height: 5px;
+    border-radius: 3px;
+    background-color: rgba(245, 245, 247, 0.2);
+}
+
+.islands-bar-fill {
+    border-radius: 3px;
+    background-color: #f5f5f7;
+}
+
+/* Media */
+.islands-media-compact {
+    padding: 0 11px 0 4px;
+}
+
+.islands-cover {
+    background-color: #26262a;
+}
+
+.islands-level {
+    spacing: 2px;
+}
+
+.islands-level-bar {
+    width: 3px;
+    border-radius: 2px;
+}
+
+.islands-media-opened {
+    padding: 20px 24px;
+    spacing: 14px;
+}
+
+.islands-media-head {
+    spacing: 14px;
+}
+
+.islands-media-progress {
+    spacing: 10px;
+}
+
+.islands-media-time {
+    font-size: 11px;
+    color: #a1a1a6;
+}
+
+.islands-media-controls {
+    spacing: 40px;
+}
+
+/* OSD */
+.islands-osd {
+    padding: 0 12px 0 10px;
+    spacing: 10px;
+}
+
+.islands-osd-number {
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 18px;
+    text-align: right;
+}
+
+/* Call */
+.islands-call {
+    padding: 0 17px;
+    spacing: 14px;
+}
+
+.islands-call-compact {
+    padding: 0 3px 0 12px;
+    spacing: 6px;
+}
+
+.islands-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 22px;
+    background-color: #26262a;
+}
+
+.islands-avatar-text {
+    font-weight: 600;
+}
+
+/* Notification with buttons */
+.islands-actions-row {
+    padding: 0 18px;
+    spacing: 10px;
+}
+
+/* Timer */
+.islands-timer-opened {
+    padding: 22px 24px;
+    spacing: 14px;
+}
+
+.islands-timer-head {
+    spacing: 10px;
+}
+
+.islands-timer-big {
+    font-size: 28px;
+    font-weight: 600;
+    font-feature-settings: "tnum";
+}
+
+/* Glance */
+.islands-glance {
+    padding: 15px 24px;
+    spacing: 6px;
+}
+
+.islands-glance-row {
+    spacing: 10px;
+}
+
+.islands-glance-icon {
+    icon-size: 14px;
+    color: #a1a1a6;
+}
+
+.islands-glance-first {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.islands-glance-line {
+    font-size: 13px;
+    color: #a1a1a6;
+}
+
+/* Quick note */
+.islands-note {
+    padding: 0 22px;
+    spacing: 12px;
+}
+
+.islands-note-entry {
+    background-color: #26262a;
+    border-radius: 18px;
+    padding: 8px 14px;
+    color: #f5f5f7;
+    caret-color: #f5f5f7;
+}
+
+/* Battery */
+.islands-battery {
+    padding: 0 12px 0 10px;
+    spacing: 8px;
+}

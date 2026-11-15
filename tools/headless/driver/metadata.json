@@ -1,0 +1,1 @@
+{"uuid": "islands-driver@test", "name": "Islands driver", "description": "Drives Islands in the headless test shell.", "shell-version": ["50"], "session-modes": ["user", "unlock-dialog"]}
