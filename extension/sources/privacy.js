@@ -1,7 +1,8 @@
 // What records or watches: the screen recording (GNOME's screenshot UI),
 // screen sharing, the camera and the microphone in use. Read from GNOME's
 // own indicators, which already follow PipeWire and PulseAudio (as Halo's
-// shared/system.js does); nothing is polled. A red mark for the screen,
+// shared/system.js does); nothing is polled. Sharing, camera and microphone
+// are one activity each. A red mark for the screen,
 // green for camera and microphone, as the canvas has it.
 
 import GLib from 'gi://GLib';
@@ -13,6 +14,14 @@ import {clockText} from '../lib/words.js';
 
 const RED = colors.dark.down;
 const GREEN = colors.dark.up;
+// How long a new use stays opened below the bar.
+const OPEN_MS = 3000;
+
+const USES = [
+    {id: 'sharing', on: '_sharing', icon: 'screen-shared-symbolic', title: 'Sharing the screen', short: 'Sharing', color: RED},
+    {id: 'camera', on: '_camera', icon: 'camera-web-symbolic', title: 'Camera in use', short: 'Camera', color: GREEN},
+    {id: 'microphone', on: '_microphone', icon: 'audio-input-microphone-symbolic', title: 'Microphone in use', short: 'Microphone', color: GREEN},
+];
 
 export class PrivacySource {
     constructor(island) {
@@ -75,21 +84,22 @@ export class PrivacySource {
         } else {
             this._island.remove('recording');
         }
-        const uses = [
-            this._sharing && {icon: 'screen-shared-symbolic', title: 'Sharing the screen', color: RED},
-            this._camera && {icon: 'camera-web-symbolic', title: 'Camera in use', color: GREEN},
-            this._microphone && {icon: 'audio-input-microphone-symbolic', title: 'Microphone in use', color: GREEN},
-        ].filter(Boolean);
-        if (uses.length === 0 || !this._island.allows('privacy')) {
-            this._island.remove('privacy');
-            return;
+        // Each use is its own activity (and bubble): it opens below the
+        // bar when it starts, then rests in the bar while it lasts.
+        const allowed = this._island.allows('privacy');
+        for (const use of USES) {
+            const id = `privacy:${use.id}`;
+            if (!allowed || !this[use.on]) {
+                this._island.remove(id);
+                continue;
+            }
+            if (this._island.has(id))
+                continue;
+            this._island.set({
+                id, kind: 'privacy', source: 'privacy', opensFor: true, opens: true, lasting: true, duration: OPEN_MS,
+                icon: use.icon, color: use.color, title: use.title, short: use.short,
+            });
         }
-        this._island.set({
-            id: 'privacy', kind: 'privacy', source: 'privacy',
-            icon: uses[0].icon, color: uses[0].color,
-            title: uses.map(use => use.title).join(', '), short: uses.length > 1 ? `${uses.length} in use` : uses[0].title,
-            note: uses.length > 1 ? uses.slice(1).map(use => use.title).join(', ') : null,
-        });
     }
 
     destroy() {
@@ -101,6 +111,7 @@ export class PrivacySource {
         this._watched = [];
         Main.screenshotUI.disconnectObject(this);
         this._island.remove('recording');
-        this._island.remove('privacy');
+        for (const use of USES)
+            this._island.remove(`privacy:${use.id}`);
     }
 }

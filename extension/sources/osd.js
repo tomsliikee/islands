@@ -1,13 +1,14 @@
 // Volume, brightness and the other on-screen displays, from Halo's
 // sources/osd.js: GNOME's own windows stay quiet and the island shows the
-// level instead (canvas: 300 x 26 for 1.5 s). GNOME shows one through
+// level instead, opened below the bar while it changes (1.5 s after the
+// last step), then it goes. GNOME shows one through
 // OsdWindowManager._showOsdWindow, for every way in (the volume keys, the
 // brightness keys, gnome-settings-daemon over D-Bus), so that one method
 // is shadowed on the manager and given back on destroy.
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import {isMuted, levelShare, osdKind} from '../lib/words.js';
+import {isMuted, levelShare, osdKind, osdName} from '../lib/words.js';
 
 const ID = 'osd';
 // How long a level stays after the last change (canvas: 1.5 s).
@@ -46,6 +47,7 @@ export class OsdSource {
             id: ID, kind: 'osd', hint: true, duration: LEVEL_MS,
             icon: gicon ?? 'dialog-information-symbolic',
             share,
+            name: osdName(kind) || label || '',
             short: hasLevel ? `${Math.round(level * 100)}` : '',
             title: hasLevel ? '' : label || (muted ? 'Muted' : 'Changed'),
             key: `${iconName}:${share === null ? label : Math.round(share * 100)}`,

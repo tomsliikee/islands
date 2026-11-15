@@ -22,6 +22,10 @@ const FADE_IN_DELAY_MS = 110;
 const BUBBLE_FADE_MS = 160;
 // A new bubble slides in from under the island by this much.
 const BUBBLE_ENTER = 12;
+// What an opened message's text does not have of the island's width
+// (padding, icon, gaps, the time), and how many lines it unfolds to.
+const TEXT_INSET = 150;
+const MAX_LINES = 5;
 
 function fade(actor, opacity, duration, delay = 0, onComplete = null) {
     actor.remove_transition('opacity');
@@ -84,6 +88,35 @@ export class IslandView {
         return Boolean(target) && (this.shape.contains(target) || this._bubbles.some(bubble => bubble.actor.contains(target)));
     }
 
+    // The bubble's slot under the pointer, or null.
+    bubbleAtPointer() {
+        if (!this._shown)
+            return null;
+        const [x, y] = global.get_pointer();
+        const target = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, x, y);
+        return this._bubbles.find(bubble => target && bubble.actor.contains(target))?.slot ?? null;
+    }
+
+    // How many lines (1 to MAX_LINES) a message's body takes in an opened
+    // island of this width, measured with the opened look's own style.
+    noteLines(text, width) {
+        if (!this._measure) {
+            this._measure = new St.Label({style_class: 'islands-opened-note', opacity: 0, reactive: false});
+            this._measure.clutter_text.line_wrap = true;
+            this._measure.set_position(-10000, -10000);
+            this.group.add_child(this._measure);
+        }
+        const measure = this._measure;
+        // The text's room in GENERIC.opened: the width less the padding,
+        // the icon and the time beside it.
+        const room = Math.max(80, width - TEXT_INSET);
+        measure.text = 'X';
+        const [, line] = measure.get_preferred_height(room);
+        measure.text = text;
+        const [, all] = measure.get_preferred_height(room);
+        return Math.max(1, Math.min(MAX_LINES, Math.round(all / Math.max(1, line))));
+    }
+
     // Forgets a hover St kept from before; the next enter sets it anew.
     clearHover() {
         this.shape.hover = false;
@@ -137,7 +170,11 @@ export class IslandView {
 
         const first = this.shape.width === 0;
         const to = {x: island.x, y: island.y, width: island.width, height: island.height};
-        if (first) {
+        // A hand-over (Lantern gives the island back) takes the shape of
+        // the new state at once: the one it left with is the one Lantern
+        // shrank into, and springing from there would show a second step.
+        if (first || instant) {
+            stopSprings(this.shape);
             this.shape.set_position(to.x, to.y);
             this.shape.set_size(to.width, to.height);
             this._maxRadius = island.radius;
@@ -294,6 +331,9 @@ export class IslandView {
             }
             this._fillBubble(bubble, slot, at.size);
             bubble.actor.reactive = visible;
+            // A bubble stepping aside under the pointer gets no leave.
+            if (!visible)
+                bubble.actor.hover = false;
             if (first) {
                 bubble.actor.set_position(at.x, at.y);
                 bubble.actor.set_size(at.size, at.size);

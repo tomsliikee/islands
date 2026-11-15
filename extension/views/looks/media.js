@@ -18,6 +18,8 @@ import {LevelBar, column, ink, label, roundButton, row, updatable} from './parts
 const BARS = 5;
 // The bars' heights as shares of the pill, one cycle the level walks through.
 const WAVE = [0.23, 0.5, 0.35, 0.58, 0.27, 0.46, 0.62, 0.31, 0.54, 0.4];
+// Ticks per point of the wave: at 20 fps one point per 200 ms.
+const WAVE_TICKS = 4;
 
 // The cover's mean colour, read once per cover from a 1 x 1 copy; only
 // local files are read (a remote cover would mean a download).
@@ -86,10 +88,18 @@ export const MEDIA = {
             level.add_child(bar);
             return bar;
         });
+        // The level walks one point of the wave per WAVE_TICKS ticks and
+        // glides between the points, so it sways rather than flickers at
+        // the same frame rate.
         let step = 0;
         const draw = rest => {
+            const at = step / WAVE_TICKS;
+            const whole = Math.floor(at);
+            const part = at - whole;
             bars.forEach((bar, i) => {
-                const share = rest || !activity.playing ? 0.2 : WAVE[(step + i * 3) % WAVE.length];
+                const from = WAVE[(whole + i * 3) % WAVE.length];
+                const to = WAVE[(whole + 1 + i * 3) % WAVE.length];
+                const share = rest || !activity.playing ? 0.2 : from + (to - from) * part;
                 bar.scale_y = Math.max(3, pill * share) / tallest;
             });
             step++;

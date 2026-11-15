@@ -1,8 +1,10 @@
 // Small things the system does, each told briefly in the bar: something
-// copied (a preview of it), Do not disturb switched, the sound output
+// copied (a preview of it), Caps Lock or Num Lock switched, Do not disturb
+// switched, the sound output
 // switched (with a headset's battery when UPower knows it), a drive
 // plugged in (with buttons to open or eject it). All from signals.
 
+import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
@@ -10,7 +12,7 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import {copiedText} from '../lib/words.js';
+import {copiedText, lockTitle} from '../lib/words.js';
 
 const SHORT_MS = 2000;
 
@@ -40,6 +42,36 @@ export class ClipboardSource {
         this._selection.disconnect(this._id);
         this._island.remove('clipboard');
         this._island = null;
+    }
+}
+
+// Caps Lock and Num Lock: GNOME shows nothing when they switch; the
+// keyboard map says so with a signal.
+export class LocksSource {
+    constructor(island) {
+        this._island = island;
+        this._keymap = Clutter.get_default_backend().get_default_seat().get_keymap();
+        this._caps = this._keymap.get_caps_lock_state();
+        this._num = this._keymap.get_num_lock_state();
+        this._id = this._keymap.connect('state-changed', () => this._changed());
+    }
+
+    _changed() {
+        const caps = this._keymap.get_caps_lock_state();
+        const num = this._keymap.get_num_lock_state();
+        const which = caps !== this._caps ? 'caps' : num !== this._num ? 'num' : null;
+        this._caps = caps;
+        this._num = num;
+        if (!which || !this._island.allows('locks'))
+            return;
+        const on = which === 'caps' ? caps : num;
+        this._island.set({id: 'locks', kind: 'osd', hint: true, source: 'locks', duration: SHORT_MS,
+            icon: 'input-keyboard-symbolic', title: lockTitle(which, on), key: `${which}:${on}`});
+    }
+
+    destroy() {
+        this._keymap.disconnect(this._id);
+        this._island.remove('locks');
     }
 }
 

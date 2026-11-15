@@ -6,7 +6,9 @@
 // only timeouts are a pending hover-open and the end of a short message.
 
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -21,12 +23,21 @@ import {IslandView} from './views/island.js';
 
 // The canvas' setting "open on hover": after 400 ms without a click.
 const HOVER_OPEN_MS = 400;
+// The pointer may be off the island this long before it counts as gone: a
+// shape on its way between sizes is not under it for a moment.
+const LEAVE_GRACE_MS = 160;
+// A touchpad swipe up by this much (Clutter's scroll units, about 10 px
+// each) sends away what is opened.
+const SWIPE_AWAY = 3;
 // In fullscreen the island floats this far below the edge (canvas F).
 const FULLSCREEN_TOP = 6;
 
 // Settings that switch a whole family of sources, besides the per-source
 // switches in disabled-sources.
 const FAMILY_KEYS = {osd: 'osd', notification: 'notifications', call: 'notifications'};
+
+// Looks whose text the pointer unfolds (geometry.js grows them by lines).
+const FULL_TEXT = new Set(['notification', 'actions', 'alarm']);
 
 export class Island {
     // settings: Gio.Settings of org.gnome.shell.extensions.islands;
@@ -49,6 +60,16 @@ export class Island {
         this._hidden = false;
         this._scrollSum = 0;
         this._outsideId = 0;
+        this._grab = null;
+        this._leaveId = 0;
+        this._peek = null;
+        this._peekId = 0;
+        this._peekWanted = null;
+        this._hoverSuppressed = false;
+        this._swipe = 0;
+        this._swiped = false;
+        this._swipeAt = 0;
+        this._touchpad = new Gio.Settings({schema_id: 'org.gnome.desktop.peripherals.touchpad'});
         this._powerListeners = new Set();
         this._lookListeners = new Set();
         this._hoverListeners = new Set();
@@ -153,6 +174,14 @@ export class Island {
         return {x, y, width, height};
     }
 
+    // The empty island at rest in the bar: what Lantern shrinks into when
+    // the pointer has left (the island is grown under it while it is
+    // asked, and would otherwise shrink a second time on the way back).
+    get restRect() {
+        const {x, y, width, height} = this._state?.rest ?? this.rect;
+        return {x, y, width, height};
+    }
+
     // What looks may spend now (lib/power.js reads it).
     get power() {
         const settings = this._settings;
@@ -194,6 +223,8 @@ export class Island {
             this._expanded = null;
         if (this._focus === id)
             this._focus = null;
+        if (this._peek === id)
+            this._peek = null;
     }
 
     // The state as plain values, worked out from what goes on now.
@@ -213,7 +244,11 @@ export class Island {
             }
         }
         const live = this.activities.filter(activity => this.allows(activity.source ?? activity.kind));
-        const {main, waiting} = arrange(live, this._dismissed, this._focus);
+        // A bubble under the pointer shows its activity for as long as the
+        // pointer stays (a peek); it does not take the island's place.
+        const peek = this._hovered && this._peek && live.some(activity => activity.id === this._peek) ? this._peek : null;
+        const dismissed = peek ? new Set([...this._dismissed].filter(id => id !== peek)) : this._dismissed;
+        const {main, waiting} = arrange(live, dismissed, peek ?? this._focus);
 
         let mode = 'idle';
         let kind = 'idle';
@@ -227,7 +262,8 @@ export class Island {
                 : null;
             if (timed === 'opened' || main.hint)
                 mode = timed;
-            else if (this._expanded === main.id || (this._hoverOpen && settings.get_boolean('hover-open')))
+            else if (this._expanded === main.id || main.id === peek
+                || (this._hoverOpen && !this._hoverSuppressed && settings.get_boolean('hover-open')))
                 mode = 'opened';
             else
                 mode = 'compact';
@@ -257,8 +293,20 @@ export class Island {
         // A source may pick a look of another size (a notification with
         // buttons is taller than one without).
         const look = activity ? activity.look ?? kind : 'idle';
-        const shape = shapeFor(look, mode === 'idle' ? 'compact' : mode, pill, {duo});
+        // A message the pointer holds shows its whole text: the island
+        // grows by the lines its body needs.
+        const lines = mode === 'opened' && activity && this._holds(activity) && activity.note && FULL_TEXT.has(look)
+            ? this.view.noteLines(activity.note, shapeFor(look, 'opened', pill).width)
+            : 1;
+        const shape = shapeFor(look, mode === 'idle' ? 'compact' : mode, pill, {duo, lines});
         const compactWidth = shapeFor(main ? main.look ?? main.kind : 'idle', 'compact', pill, {duo}).width;
+        const place = at => layout({
+            monitor: monitor ?? {x: 0, y: 0, width: 1280},
+            bar, pill, shape: at, compactWidth,
+            bubbles: slots.length,
+            top: this._fullscreen ? FULLSCREEN_TOP : null,
+        }).island;
+        const rest = place(shapeFor('idle', 'compact', pill, {duo}));
         const frame = layout({
             monitor: monitor ?? {x: 0, y: 0, width: 1280},
             bar, pill, shape, compactWidth,
@@ -272,8 +320,9 @@ export class Island {
             : `idle:${mode}`;
         // What the content is built as: a look may take a new key in place
         // while this stays the same.
-        const base = activity ? `${activity.id}:${mode}:${shape.width}:${look}` : key;
-        return {frame, key, base, activity, mode, kind, slots, visible, pill, main, instant: Boolean(this._instant)};
+        const base = activity ? `${activity.id}:${mode}:${shape.width}:${shape.height}:${look}` : key;
+        const shown = lines > 1 ? {...activity, fullText: true} : activity;
+        return {frame, rest, key: `${key}:${lines}`, base, activity: shown, mode, kind, slots, visible, pill, main, peek, instant: Boolean(this._instant)};
     }
 
     update() {
@@ -290,7 +339,10 @@ export class Island {
         this.view.setBlur(this._settings.get_string('style') === 'auto');
         this.view.show(state);
         this._scheduleAlert(now);
-        this._watchOutside(state.mode === 'opened' && !state.activity?.hint && state.activity?.id !== 'glance');
+        // Opened by a click (pinned), not by the pointer or a message.
+        const look = state.activity?.look ?? state.kind;
+        this._watchOutside(state.visible && state.mode === 'opened' && this._expanded === state.main?.id
+            && !state.activity?.hint && look !== 'note' && state.activity?.id !== 'glance');
         for (const callback of this._powerListeners)
             callback();
         if (before?.key !== state.key || before?.mode !== state.mode) {
@@ -319,73 +371,182 @@ export class Island {
     }
 
     // While an activity is opened by a click, a press anywhere else closes
-    // it, as on the Mac. The stage is watched only while it is open.
+    // it, as on the Mac. A press on a window goes to the window without
+    // the stage seeing it, so the island holds the input while it is
+    // pinned open, as GNOME's menus do: the press outside closes it and
+    // goes nowhere else; Esc closes it too.
     _watchOutside(on) {
         if (on && !this._outsideId) {
-            this._outsideId = global.stage.connect('captured-event', (_stage, event) => {
-                if (event.type() !== Clutter.EventType.BUTTON_PRESS && event.type() !== Clutter.EventType.TOUCH_BEGIN)
+            try {
+                this._grab = Main.pushModal(this.view.group, {actionMode: Shell.ActionMode.POPUP});
+            } catch (error) {
+                this._grab = null;
+                console.warn(`Islands: no modal grab: ${error.message}`);
+            }
+            // Under the grab a press goes to the island's group alone, a
+            // key to the stage.
+            this._outsideOn = this._grab ? [this.view.group, global.stage] : [global.stage];
+            this._outsideId = 1;
+            this._outsideIds = this._outsideOn.map(actor => actor.connect('captured-event', (_actor, event) => {
+                const type = event.type();
+                if (type === Clutter.EventType.KEY_PRESS && event.get_key_symbol() === Clutter.KEY_Escape) {
+                    this._close();
+                    return Clutter.EVENT_STOP;
+                }
+                if (type !== Clutter.EventType.BUTTON_PRESS && type !== Clutter.EventType.TOUCH_BEGIN)
                     return Clutter.EVENT_PROPAGATE;
                 const [x, y] = event.get_coords();
                 const target = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, x, y);
                 if (target && (this.view.shape.contains(target) || this.view.bubbleActors.some(b => b.contains(target))))
                     return Clutter.EVENT_PROPAGATE;
-                this._expanded = null;
-                this._hoverOpen = false;
-                this.update();
-                return Clutter.EVENT_PROPAGATE;
-            });
+                this._close();
+                return this._grab ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE;
+            }));
         } else if (!on && this._outsideId) {
-            global.stage.disconnect(this._outsideId);
+            this._outsideOn.forEach((actor, i) => actor.disconnect(this._outsideIds[i]));
             this._outsideId = 0;
+            this._outsideOn = null;
+            this._outsideIds = null;
+            if (this._grab)
+                Main.popModal(this._grab);
+            this._grab = null;
         }
     }
 
-    // The pointer holds a message open that was open when it came; it
-    // does not open one that has already shrunk (its buttons would move
-    // away under the pointer).
+    // Closes what is opened, and keeps the pointer from opening it again
+    // until it has left.
+    _close() {
+        this._expanded = null;
+        this._hoverOpen = false;
+        this._peek = null;
+        this._hoverSuppressed = this._hovered;
+        this._clearTimeouts(['_hoverId', '_peekId']);
+        this.update();
+    }
+
+    _clearTimeouts(names) {
+        for (const name of names) {
+            if (this[name])
+                GLib.source_remove(this[name]);
+            this[name] = 0;
+        }
+    }
+
+    // The pointer holds a message open, also one that had shrunk already
+    // (it opens again after HOVER_OPEN_MS, so a pointer on its way past
+    // does not move buttons under itself).
     _holds(activity) {
         return this._hovered && this._held === activity.id;
     }
 
     // St keeps `hover` set while the island is hidden (Lantern grown out
-    // of it) or while a modal grab holds the pointer (the quick note), so
-    // it may still be set once the pointer has long gone. Before each
-    // state the pointer is asked where it really is; a stale hover is
-    // dropped and would otherwise flash the hover look or the glance.
+    // of it), while a modal grab holds the pointer (the quick note), or on
+    // a bubble that stepped aside under the pointer, so it may still be set
+    // once the pointer has long gone. Before each state the pointer is
+    // asked where it really is; a stale hover is dropped and would
+    // otherwise flash the hover look or the glance, or keep it open.
     _checkHover() {
-        if (!this._hovered || this.view.pointerInside())
+        if (!this._hovered || this._leaveId || this.view.pointerInside())
+            return;
+        // Still where the shown island is heading (on its way to a new
+        // size): not gone yet.
+        const to = this._state?.visible ? this._state.frame.island : null;
+        const [x, y] = global.get_pointer();
+        if (to && x >= to.x && x < to.x + to.width && y >= to.y && y < to.y + to.height)
             return;
         this._setHovered(false);
         this.view.clearHover();
     }
 
-    _hover(hovered) {
-        hovered = this.view.hovered || hovered;
-        if (hovered === this._hovered)
+    // St's hover flags only say that something changed; where the pointer
+    // is comes from the pointer itself. Leaving waits LEAVE_GRACE_MS, so a
+    // shape on its way to a new size does not lose the pointer in between.
+    _hover(_hovered) {
+        const inside = this.view.pointerInside();
+        this._wantPeek(inside ? this.view.bubbleAtPointer() : null);
+        if (inside) {
+            this._clearTimeouts(['_leaveId']);
+            if (!this._hovered) {
+                this._setHovered(true);
+                this.update();
+            }
             return;
-        this._setHovered(hovered);
-        this.update();
+        }
+        if (!this._hovered || this._leaveId)
+            return;
+        this._leaveId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, LEAVE_GRACE_MS, () => {
+            this._leaveId = 0;
+            if (!this.view.pointerInside()) {
+                this._setHovered(false);
+                this.view.clearHover();
+                this.update();
+            }
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    // A bubble under the pointer: its activity shows after HOVER_OPEN_MS.
+    _wantPeek(slot) {
+        const id = slot?.activity?.id ?? null;
+        if (id === this._peekWanted)
+            return;
+        this._peekWanted = id;
+        this._clearTimeouts(['_peekId']);
+        if (!id || id === this._peek)
+            return;
+        this._peekId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, HOVER_OPEN_MS, () => {
+            this._peekId = 0;
+            this._peek = id;
+            this.update();
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     _setHovered(hovered) {
         this._hovered = hovered;
         const main = this._state?.main;
-        this._held = hovered && this._state?.mode === 'opened' && (main?.hint || main?.opensFor) ? main.id : null;
+        const timed = Boolean(main && (main.hint || main.opensFor));
+        this._held = hovered && timed && this._state?.mode === 'opened' ? main.id : null;
         for (const callback of this._hoverListeners)
             callback(hovered);
-        if (this._hoverId) {
-            GLib.source_remove(this._hoverId);
-            this._hoverId = 0;
-        }
+        this._clearTimeouts(['_hoverId']);
         this._hoverOpen = false;
-        if (hovered && this._state?.main && this._settings.get_boolean('hover-open')) {
+        if (!hovered) {
+            this._hoverSuppressed = false;
+            this._peek = null;
+            this._peekWanted = null;
+            this._clearTimeouts(['_peekId', '_leaveId']);
+            return;
+        }
+        // A message that had shrunk opens again; a lasting activity opens
+        // when "open on hover" is on.
+        const reopen = timed && !this._held;
+        if (main && !this._hoverSuppressed && (reopen || this._settings.get_boolean('hover-open'))) {
             this._hoverId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, HOVER_OPEN_MS, () => {
                 this._hoverId = 0;
                 this._hoverOpen = true;
+                const now = this._state?.main;
+                if (now && (now.hint || now.opensFor) && this._activities.has(now.id))
+                    this._held = now.id;
                 this.update();
                 return GLib.SOURCE_REMOVE;
             });
         }
+    }
+
+    // What is opened goes away: a message for good (as a right click), a
+    // ringing call or a new use of the microphone back to the bar, a
+    // lasting activity back to its compact form.
+    _sendAway(main) {
+        if (main.hint) {
+            this._activities.delete(main.id);
+            this._forget(main.id);
+            main.onDismiss?.();
+        } else if (main.opensFor) {
+            this._activities.set(main.id, {...main, at: 0});
+        }
+        this._held = null;
+        this._close();
     }
 
     _click(button) {
@@ -397,6 +558,7 @@ export class Island {
             else
                 this._dismissed.add(main.id);
             this._expanded = null;
+            this._peek = null;
             main.onDismiss?.();
             this.update();
             return;
@@ -422,12 +584,25 @@ export class Island {
             main.onActivate();
             return;
         }
-        this._expanded = this._expanded === main.id ? null : main.id;
+        // Opened by the pointer (or a peek at a bubble): a click pins it
+        // open, and a peeked bubble takes the island's place. Pinned: a
+        // click closes it, and it stays closed under the pointer.
+        if (this._expanded === main.id) {
+            this._close();
+            return;
+        }
+        if (this._peek === main.id) {
+            this._focus = main.id;
+            this._peek = null;
+        }
+        this._expanded = main.id;
         this.update();
     }
 
     _scroll(event) {
         const main = this._state?.main;
+        if (main && this._state.mode === 'opened' && this._swipes(event, main))
+            return;
         if (!main?.onScroll)
             return;
         const direction = event.get_scroll_direction();
@@ -444,6 +619,38 @@ export class Island {
         this._scrollSum = sum;
         if (steps !== 0)
             main.onScroll(steps);
+    }
+
+    // Two fingers on the touchpad over what is opened: swiped up, it goes
+    // (once per swipe). Wheels and the compact island scroll as before.
+    // Returns whether the event was a touchpad swipe.
+    _swipes(event, main) {
+        if (event.get_scroll_direction() !== Clutter.ScrollDirection.SMOOTH)
+            return false;
+        const finger = event.get_scroll_source?.() === Clutter.ScrollSource.FINGER
+            || event.get_source_device?.()?.get_device_type?.() === Clutter.InputDeviceType.TOUCHPAD_DEVICE;
+        if (!finger)
+            return false;
+        const now = GLib.get_monotonic_time();
+        // A pause starts a new swipe.
+        if (now - this._swipeAt > 300000) {
+            this._swipe = 0;
+            this._swiped = false;
+        }
+        this._swipeAt = now;
+        const [, dy] = event.get_scroll_delta();
+        // With natural scrolling the content follows the fingers: fingers
+        // up scroll down (dy > 0).
+        this._swipe += this._touchpad.get_boolean('natural-scroll') ? dy : -dy;
+        if (!this._swiped && this._swipe >= SWIPE_AWAY) {
+            this._swiped = true;
+            this._sendAway(main);
+        }
+        if (event.get_scroll_finish_flags?.() & Clutter.ScrollFinishFlags.VERTICAL) {
+            this._swipe = 0;
+            this._swiped = false;
+        }
+        return true;
     }
 
     _bubble(slot, button) {
@@ -467,11 +674,7 @@ export class Island {
     }
 
     destroy() {
-        for (const id of [this._hoverId, this._alertId]) {
-            if (id)
-                GLib.source_remove(id);
-        }
-        this._hoverId = this._alertId = 0;
+        this._clearTimeouts(['_hoverId', '_alertId', '_leaveId', '_peekId']);
         this._watchOutside(false);
         this._settings.disconnect(this._settingsId);
         this._interface.disconnect(this._animationsId);

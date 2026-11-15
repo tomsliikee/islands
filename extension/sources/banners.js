@@ -12,6 +12,7 @@
 // list shows what came meanwhile.
 
 import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
@@ -26,6 +27,28 @@ const CLOCKS = 'org.gnome.clocks';
 
 function appIdOf(source) {
     return source?._appId ?? source?.app?.get_id?.()?.replace(/\.desktop$/, '') ?? null;
+}
+
+// The running app a notification came from, or null.
+function appOf(source) {
+    if (source?.app)
+        return source.app;
+    const appId = appIdOf(source);
+    if (!appId)
+        return null;
+    const system = Shell.AppSystem.get_default();
+    return system.lookup_app(`${appId}.desktop`) ?? system.lookup_heuristic_basename(appId) ?? null;
+}
+
+// A click on a notification: its default action, and the app's window to
+// the front. Electron apps (Discord) often send no default action, and
+// GNOME's activate() alone then does nothing visible.
+function activate(notification) {
+    // Asked first: activate() may destroy the notification and its source.
+    const app = appOf(notification.source);
+    notification.activate();
+    if (app && app.get_state() === Shell.AppState.RUNNING)
+        app.activate();
 }
 
 function whenText(datetime) {
@@ -149,7 +172,7 @@ export class BannerSource {
                 title, note: body || app || 'Incoming call', initials: initials(title),
                 icon: notification.gicon ?? null,
                 actions, onAction,
-                onActivate: () => notification.activate(),
+                onActivate: () => activate(notification),
                 onDismiss: acknowledge,
             });
             return;
@@ -163,7 +186,7 @@ export class BannerSource {
                 title: notification.title || 'Alarm', short: notification.title || 'Alarm', note: body,
                 icon: source?.icon ?? 'alarm-symbolic', when: whenText(notification.datetime),
                 actions, onAction,
-                onActivate: () => notification.activate(),
+                onActivate: () => activate(notification),
                 onDismiss: acknowledge,
             });
             return;
@@ -183,7 +206,7 @@ export class BannerSource {
             icon: notification.gicon ?? source?.icon ?? 'dialog-information-symbolic',
             when: whenText(notification.datetime),
             actions, onAction,
-            onActivate: () => notification.activate(),
+            onActivate: () => activate(notification),
             onExpire: acknowledge,
             onDismiss: acknowledge,
         });

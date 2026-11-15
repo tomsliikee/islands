@@ -4,7 +4,7 @@
 // answer and decline bubbles). The pointer on the island holds it open.
 
 // How long each kind stays open, in ms (notification 5 s, call
-// 6 s, file 8 s). A volume change is a compact hint (canvas: 1.5 s).
+// 6 s, file 8 s). A volume change stays 1.5 s after its last step.
 export const OPEN_MS = {notification: 5000, call: 6000, file: 8000, osd: 1500, battery: 3000};
 const DEFAULT_MS = 5000;
 
@@ -15,9 +15,10 @@ export function openMs(kind, length = 'normal') {
     return Math.round((OPEN_MS[kind] ?? DEFAULT_MS) * (LENGTHS[length] ?? 1));
 }
 
-// Kinds whose message opens the island below the bar; the others (volume,
-// battery) change only its compact form.
-export const OPENS = new Set(['notification', 'call', 'file']);
+// Kinds whose message opens the island below the bar while one acts (a
+// volume step, Caps Lock); the others (battery) change only its compact
+// form.
+export const OPENS = new Set(['notification', 'call', 'file', 'osd']);
 
 // A message may bring its own time (`duration`, in ms at normal length);
 // a sticky one (a critical notification with buttons) stays until acted on.

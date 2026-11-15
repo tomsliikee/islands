@@ -81,6 +81,12 @@ export const GENERIC = {
         const title = label(activity.title, 'islands-opened-title');
         text.add_child(title);
         const note = activity.note ? label(activity.note, 'islands-opened-note') : null;
+        // Under the pointer a message shows its whole body (the island has
+        // grown by its lines).
+        if (note && activity.fullText) {
+            note.clutter_text.ellipsize = 0; // Pango.EllipsizeMode.NONE
+            note.clutter_text.line_wrap = true;
+        }
         if (note)
             text.add_child(note);
         box.add_child(text);

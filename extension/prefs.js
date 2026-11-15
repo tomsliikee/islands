@@ -22,7 +22,7 @@ const CONFLICTING = {
 // Activity sources with a switch each, in the island's fixed order.
 const SOURCES = [
     ['call', 'Calls', 'From the phone over NectarLink, Discord or a meeting'],
-    ['privacy', 'Camera, microphone, screen sharing', 'A dot while something records'],
+    ['privacy', 'Camera, microphone, screen sharing', 'Opens when one starts, then a bubble each while in use'],
     ['timer', 'Timers and alarms', 'GNOME Clocks, stopwatch'],
     ['notification', 'Notifications', 'Discord, mail, calendar and all others'],
     ['events', 'Events starting soon', 'From your calendars, ten minutes ahead and at the start'],
@@ -37,6 +37,7 @@ const SOURCES = [
     ['updates', 'System updates', 'When PackageKit finds new ones'],
     ['audio', 'Sound output', 'A word when the output switches, with a headset\'s battery'],
     ['drives', 'Drives', 'A USB stick or disk plugged in, with Open and Eject'],
+    ['locks', 'Caps Lock and Num Lock', 'A word when one is switched'],
     ['dnd', 'Do not disturb', 'A word when it is switched'],
     ['clipboard', 'Clipboard', 'A preview of what was copied (off at first: it speaks on every copy)'],
 ];

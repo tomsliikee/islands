@@ -69,7 +69,7 @@ flowchart TD
 - **Look:** Black, as on the Mac. With **Blur My Shell** enabled, the island borrows its blur pipeline and its window opacity over the dark bar colour. *Tested* (`states` with `ISLANDS_WITH=blur-my-shell@aunetx`).
 - **Motion:** Springs for the shape (grow **0.58 / 340**, shrink **0.75 / 420**, hover **0.7 / 520**), whole pixels on every frame. Content only fades (out **90 ms**, in **170 ms** after 110 ms). A spring asked again for the target it is already heading to keeps its speed instead of starting over. *Tested* headless (`churn`). The feel on a real screen has not been checked.
 - **Changes in Place:** A volume step, a growing download, a new battery percentage or a music player's position update the labels of the look that is already shown. They do not fade it out and in again. *Tested* (`churn`, see the power table).
-- **Hover:** The empty island grows **3.5 %**, or opens a **glance** (next event, weather, phone, Claude's limits, CPU and GPU from **Torch**, Ollama) when there is something to show. The pointer holds an open message open; it never reopens one that has already shrunk. *Tested* (`events`, `stage2`, `stage3`).
+- **Hover:** The empty island grows **3.5 %**, or opens a **glance** (next event, weather, phone, Claude's limits, CPU and GPU from **Torch**, Ollama) when there is something to show. The pointer holds an open message open, reopens one that has shrunk (after 400 ms) and unfolds its whole text, up to five lines. *Tested* (`events`, `stage2`, `stage3`, `fixes`).
 - **Fullscreen:** Running things float 6 px below the edge, the empty island hides (setting). *Built*; with a fullscreen window only the frame count was tested (`perf`).
 - **Clock:** Not part of the island. GNOME's clock sits in the same bar centre and peeks out at the ends of the empty pill, so the settings link to **Top Bar Organizer** to move it. *Tested* (`prefs`).
 
@@ -85,14 +85,15 @@ All screenshots come from the headless shell (`tools/headless`, a 1280 x 800 vir
 
 | **Activity** | **Signal** | **Evidence** |
 | :--- | :--- | :--- |
-| **Volume, brightness, Caps Lock** | `OsdWindowManager._showOsdWindow`, shadowed; GNOME's own window stays hidden | *tested* (`sources`, `monitors`) |
+| **Volume, brightness** | `OsdWindowManager._showOsdWindow`, shadowed; GNOME's own window stays hidden. Opens below the bar while it changes, then goes | *tested* (`sources`, `monitors`, `fixes`) |
+| **Caps Lock, Num Lock** | the keyboard map's `state-changed`; opens below the bar for 2 s | *built* |
 | **Notifications** | `MessageTray._showNotification`, shadowed; 452 x 78 for 5 s, 132 high with buttons | *tested* with `notify-send` |
 | **Calls** | notification category `call.*`; opens for 6 s, then rings on in the bar with answer and decline | *tested* with `notify-send` |
 | **Alarms** | GNOME Clocks' notifications, with Stop and Snooze | *built* |
 | **Music** | GNOME's MPRIS list (all players); a level at 20 fps in the cover's colour | *tested* with a stand-in player |
 | **Timer, stopwatch, pomodoro** | **Ledge**'s shared `timers.json` (GNOME Clocks keeps its running timers private) | *tested* |
 | **Events** | the date menu's calendar source; 10 min ahead and at the start | *tested* with a stand-in calendar |
-| **Camera, microphone, screen sharing, recording** | GNOME's own indicators and the screenshot UI | sharing *tested*; the others *built* |
+| **Camera, microphone, screen sharing, recording** | GNOME's own indicators and the screenshot UI; one activity each, opened for 3 s when it starts, then in the bar | sharing *tested*, three at once *tested* (`fixes`); the others *built* |
 | **Lantern** | a click on the empty island or Lantern's shortcut: Lantern grows out of the island and back | *tested* (`lantern`) with a Lantern build that has `openFrom` |
 | **Phone (NectarLink)** | `~/.local/share/Nectarlink/widget-state.json`, watched | *tested* with a stand-in file |
 | **Claude** | **Tally**'s `~/.cache/tally/limits.json` (80 % and 95 %); Claude Code's notifications | *tested* with a stand-in file |
@@ -115,14 +116,16 @@ Every source has its own switch in the settings. A source whose app is not insta
 | **Input** | **On** | **Action** |
 | :--- | :--- | :--- |
 | **Left click** | the empty island | **Lantern** grows out of it (else the overview) |
-| **Left click** | an activity | opens it below the bar, or its app (setting **Click**) |
+| **Left click** | an activity | opens it below the bar and keeps it open, or its app (setting **Click**); again: closes it |
 | **Middle click** | an activity | always opens it below the bar |
 | **Right click** | the empty island | the **quick note** line |
 | **Right click** | an activity | a lasting one steps aside into a bubble; a message goes |
+| **Hover** | a bubble | shows its activity opened while the pointer stays |
 | **Left / right click** | a bubble | brings it forward / sends it aside |
 | **Scroll** | music | the output volume in 5 % steps |
 | **Scroll** | a countdown timer | a minute more or less |
-| **Press outside** | an opened activity | closes it |
+| **Two fingers up** | an opened activity or message | a message goes, an activity closes back into the bar |
+| **Press outside** / **`Esc`** | an activity opened by a click | closes it; the press goes nowhere else, as with GNOME's menus |
 | **`Enter`** / **`Esc`** | the quick note | saves / leaves |
 
 ---

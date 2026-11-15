@@ -61,6 +61,9 @@ export const OPENED = {
     battery: [452, 78, 36],
 };
 
+// One more line of a message's body (13 px text) when it unfolds.
+export const NOTE_LINE = 17;
+
 // Lantern, grown out of the island.
 export const LANTERN = {width: 680, radius: 32};
 
@@ -86,11 +89,13 @@ export function pillTop(bar, pill) {
 // {width, height, radius} for a look in a state:
 //   state 'compact' rests in the bar, 'opened' hangs below it,
 //   'hover' is compact grown a little (the idle pill under the pointer).
-export function shapeFor(look, state, pill, {duo = false} = {}) {
+//   lines: an opened message unfolded to this many lines of its body.
+export function shapeFor(look, state, pill, {duo = false, lines = 1} = {}) {
     const scale = scaleFor(pill);
     if (state === 'opened') {
         const [width, height, radius] = OPENED[look] ?? OPENED.notification;
-        return {width: Math.round(width * scale), height: Math.round(height * scale), radius: Math.round(radius * scale)};
+        const more = Math.max(0, Math.round(lines) - 1) * NOTE_LINE;
+        return {width: Math.round(width * scale), height: Math.round((height + more) * scale), radius: Math.round(radius * scale)};
     }
     let width = COMPACT_WIDTH[duo && look === 'media' ? 'duo' : look] ?? COMPACT_WIDTH.idle;
     width = Math.round(width * scale);

@@ -46,7 +46,38 @@ export const OSD = {
             return true;
         });
     },
-    opened: GENERIC.opened,
+    // Opened while one acts: the icon, what it is, and a wide level with
+    // its number; without a level the icon and the word (Caps Lock on).
+    opened(activity, size) {
+        const glyph = icon(activity.icon, 'islands-opened-icon');
+        const levelled = typeof activity.share === 'number';
+        const name = label(levelled ? activity.name ?? '' : activity.title ?? '', 'islands-opened-title');
+        let bar = null;
+        let number = null;
+        let body;
+        if (levelled) {
+            bar = new LevelBar({x_expand: true, height: 6});
+            bar.share = activity.share;
+            number = label(activity.short ?? '', 'islands-osd-number');
+            body = column([name, row([bar.actor, number], {style_class: 'islands-osd-level'})], {x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+        } else {
+            body = column([name], {x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+        }
+        const box = row([glyph, body], {style_class: 'islands-opened islands-osd-opened', width: size.width, height: size.height});
+        return updatable(box, next => {
+            if ((typeof next.share === 'number') !== levelled)
+                return false;
+            glyph.gicon = iconOf({icon: next.icon});
+            if (levelled) {
+                bar.share = next.share;
+                number.text = next.short ?? '';
+                name.text = next.name ?? '';
+            } else {
+                name.text = next.title ?? '';
+            }
+            return true;
+        });
+    },
 };
 
 function callButtons(activity, size) {
@@ -85,7 +116,9 @@ export const CALL = {
 export const ACTIONS = {
     compact: GENERIC.compact,
     opened(activity, size) {
-        const head = GENERIC.opened(activity, {width: size.width, height: Math.round(size.height * 78 / 132)});
+        // The buttons keep their row (54 of 132 on the canvas); the text
+        // takes the rest, more when it is unfolded.
+        const head = GENERIC.opened(activity, {width: size.width, height: size.height - Math.round(size.width * 54 / 452)});
         head.style_class = 'islands-opened islands-actions-head';
         const buttons = row((activity.actions ?? []).slice(0, 3).map(action => textButton(action.label, () => activity.onAction?.(action))),
             {style_class: 'islands-actions-row', x_expand: true});

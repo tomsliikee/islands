@@ -3,6 +3,8 @@
 // island.js, its look in views/, the rules in lib/, what goes on in
 // sources/.
 
+import GLib from 'gi://GLib';
+
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {ExtensionState} from 'resource:///org/gnome/shell/misc/extensionUtils.js';
@@ -21,7 +23,7 @@ import {PhoneSource} from './sources/phone.js';
 import {PrivacySource} from './sources/privacy.js';
 import {QuickNote} from './sources/quicknote.js';
 import {SteamSource} from './sources/steam.js';
-import {AudioSource, ClipboardSource, DndSource, DrivesSource} from './sources/system.js';
+import {AudioSource, ClipboardSource, DndSource, DrivesSource, LocksSource} from './sources/system.js';
 import {TimerSource} from './sources/timer.js';
 import {TorchSource} from './sources/torch.js';
 import {UpdatesSource} from './sources/updates.js';
@@ -39,6 +41,8 @@ export const CONFLICTING = {
 };
 
 const LANTERN = 'material-search@thomashaiden';
+// Lantern's growth out of the island takes about this long.
+const LANTERN_OPENING_US = 700000;
 
 export default class IslandsExtension extends Extension {
     enable() {
@@ -75,6 +79,7 @@ export default class IslandsExtension extends Extension {
             new UpdatesSource(this._island),
             new ClipboardSource(this._island),
             new DndSource(this._island),
+            new LocksSource(this._island),
             new AudioSource(this._island),
             new DrivesSource(this._island),
             this._quickNote,
@@ -148,7 +153,23 @@ export default class IslandsExtension extends Extension {
         const island = this._island;
         if (!island || !this._settings.get_boolean('lantern') || !island.shown)
             return null;
-        const rect = island.rect;
+        // Lantern grows out of the island as it is under the pointer, and
+        // shrinks into it as it will be: with the pointer gone the island
+        // rests as a pill, and the shape Lantern left must be that one, not
+        // the grown one (which would shrink again once shown). The first
+        // moments keep the grown one so that the way out is not bent.
+        const grown = island.rect;
+        const rest = island.restRect;
+        const since = GLib.get_monotonic_time();
+        const near = () => {
+            if (GLib.get_monotonic_time() - since < LANTERN_OPENING_US)
+                return true;
+            const [x, y] = global.get_pointer();
+            return x >= grown.x && x < grown.x + grown.width && y >= grown.y && y < grown.y + grown.height;
+        };
+        const rect = {};
+        for (const key of ['x', 'y', 'width', 'height'])
+            Object.defineProperty(rect, key, {get: () => (near() ? grown : rest)[key], enumerable: true});
         island.setHidden(true, {instant: true});
         this._lanternOpen = true;
         this._anchor = {rect, onClosed: () => {

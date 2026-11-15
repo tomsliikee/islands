@@ -17,6 +17,13 @@ export function osdKind(iconName) {
     return 'other';
 }
 
+// The name an opened on-screen display shows above its level.
+const OSD_NAMES = {volume: 'Volume', microphone: 'Microphone', brightness: 'Brightness', keyboardLight: 'Keyboard light'};
+
+export function osdName(kind) {
+    return OSD_NAMES[kind] ?? '';
+}
+
 export function isMuted(iconName) {
     return /muted/.test(iconName ?? '');
 }

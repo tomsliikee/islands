@@ -90,14 +90,19 @@ test('a notification opens, then goes', () => equal(
     [alertState({kind: 'notification', at: 0}, 4999), alertState({kind: 'notification', at: 0}, 5000)], ['opened', 'gone']));
 test('a ringing call shrinks to compact and stays', () => equal(alertState({kind: 'call', at: 0, lasting: true}, 6000), 'compact'));
 test('the pointer holds it open', () => equal(alertState({kind: 'notification', at: 0}, 99999, {hovered: true}), 'opened'));
-test('the pointer holds a volume change compact', () => equal(alertState({kind: 'osd', at: 0}, 99999, {hovered: true}), 'compact'));
+test('the pointer holds a volume change opened', () => equal(alertState({kind: 'osd', at: 0}, 99999, {hovered: true}), 'opened'));
 test('own duration, scaled by the length setting', () => equal(
     [alertState({kind: 'notification', at: 0, duration: 9000}, 8999), alertState({kind: 'notification', at: 0, duration: 9000}, 9000),
         nextCheck({kind: 'notification', at: 0, duration: 1000}, 0, {length: 'long'})], ['opened', 'gone', 1600]));
 test('sticky stays and asks for no timeout', () => equal(
     [alertState({kind: 'notification', at: 0, sticky: true}, 1e9), nextCheck({kind: 'notification', at: 0, sticky: true}, 0)], ['opened', null]));
 test('a kind that opens on request', () => equal(alertState({kind: 'timer', at: 0, opens: true, duration: 6000}, 10), 'opened'));
-test('volume is a compact hint', () => equal([alertState({kind: 'osd', at: 0}, 100), alertState({kind: 'osd', at: 0}, 1500)], ['compact', 'gone']));
+test('volume opens while it changes, then goes', () => equal([alertState({kind: 'osd', at: 0}, 100), alertState({kind: 'osd', at: 0}, 1500)], ['opened', 'gone']));
+test('a new use of the microphone opens, then rests in the bar', () => equal(
+    [0, 2999, 3000].map(now => alertState({kind: 'privacy', at: 0, opens: true, lasting: true, duration: 3000}, now)), ['opened', 'opened', 'compact']));
+test('the pointer opens a ringing call again', () => equal(alertState({kind: 'call', at: 0, lasting: true}, 99999, {hovered: true}), 'opened'));
+test('an unfolded message grows by its lines', () => equal(
+    [1, 3, 5].map(lines => shapeFor('notification', 'opened', 26, {lines}).height), [78, 112, 146]));
 test('next check when the time runs out, none while hovered', () => equal(
     [nextCheck({kind: 'file', at: 1000}, 2000), nextCheck({kind: 'file', at: 0}, 9000), nextCheck({kind: 'file', at: 0}, 0, {hovered: true})],
     [7000, null, null]));
