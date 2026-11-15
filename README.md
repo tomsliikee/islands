@@ -13,6 +13,10 @@
 
 ---
 
+![Music opened below the bar](readmestuff/hero.png)
+
+---
+
 Every claim below says how it is known: *tested* (and how), *built* (it loads and runs in the headless shell, but the real thing was not there to try it with) or *planned*. All tests so far ran in **GNOME Shell 50.6** without a screen (`tools/headless`); Islands has **not yet run in a real login session**. Treat it as a preview.
 
 ---
@@ -67,7 +71,13 @@ flowchart TD
 - **Changes in Place:** A volume step, a growing download, a new battery percentage or a music player's position update the labels of the look that is already shown. They do not fade it out and in again. *Tested* (`churn`, see the power table).
 - **Hover:** The empty island grows **3.5 %**, or opens a **glance** (next event, weather, phone, Claude's limits, CPU and GPU from **Torch**, Ollama) when there is something to show. The pointer holds an open message open; it never reopens one that has already shrunk. *Tested* (`events`, `stage2`, `stage3`).
 - **Fullscreen:** Running things float 6 px below the edge, the empty island hides (setting). *Built*; with a fullscreen window only the frame count was tested (`perf`).
-- **Clock:** Not part of the island. The settings link to **Top Bar Organizer** to move it. *Tested* (`prefs`).
+- **Clock:** Not part of the island. GNOME's clock sits in the same bar centre and peeks out at the ends of the empty pill, so the settings link to **Top Bar Organizer** to move it. *Tested* (`prefs`).
+
+![Compact: phone, volume, timer with a music bubble, a call, a download, three bubbles and +9](readmestuff/compact.png)
+
+![Opened: a notification with buttons, Torch, the glance on hover, rain soon](readmestuff/opened.png)
+
+All screenshots come from the headless shell (`tools/headless`, a 1280 x 800 virtual monitor with a plain background and a see-through bar), not from a real desktop.
 
 ---
 
