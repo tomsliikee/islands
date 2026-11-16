@@ -77,6 +77,7 @@ export class Island {
         this.view = new IslandView({
             onClick: button => this._click(button),
             onHover: hovered => this._hover(hovered),
+            onMotion: () => this._motion(),
             onBubble: (slot, button) => this._bubble(slot, button),
             onScroll: event => this._scroll(event),
             context: activity => this._context(activity),
@@ -483,6 +484,20 @@ export class Island {
             }
             return GLib.SOURCE_REMOVE;
         });
+    }
+
+    // The pointer moves over the island or a bubble: Clutter picked it there,
+    // so it is inside, whatever the one enter before said. Only acts when
+    // the hover was missed or a leave is pending; otherwise free.
+    _motion() {
+        if (this._hovered && !this._leaveId)
+            return;
+        this._clearTimeouts(['_leaveId']);
+        this._wantPeek(this.view.bubbleAtPointer());
+        if (!this._hovered) {
+            this._setHovered(true);
+            this.update();
+        }
     }
 
     // A bubble under the pointer: its activity shows after HOVER_OPEN_MS.

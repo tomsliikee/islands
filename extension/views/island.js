@@ -64,6 +64,14 @@ export class IslandView {
         });
         this.group.add_child(this.shape);
         this.shape.connect('notify::hover', () => this._handlers.onHover?.(this.shape.hover));
+        // St sends one notify::hover per enter. If that one came while the
+        // pick missed the shape (mid-resize, or a hover cleared under the
+        // pointer), nothing else would come until the pointer left and came
+        // back. A motion over the shape is proof the pointer is on it.
+        this.shape.connect('motion-event', () => {
+            this._handlers.onMotion?.();
+            return Clutter.EVENT_PROPAGATE;
+        });
         this.shape.connect('button-release-event', (_actor, event) => {
             this._handlers.onClick?.(event.get_button());
             return Clutter.EVENT_STOP;
@@ -288,6 +296,10 @@ export class IslandView {
         const bubble = {actor, key: null, blur: null};
         actor.connect('clicked', (_button, button) => this._handlers.onBubble?.(bubble.slot, button));
         actor.connect('notify::hover', () => this._handlers.onHover?.(this.hovered));
+        actor.connect('motion-event', () => {
+            this._handlers.onMotion?.();
+            return Clutter.EVENT_PROPAGATE;
+        });
         this.group.add_child(actor);
         if (this._blurOn)
             this._blurBubble(bubble);
