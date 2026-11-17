@@ -4,22 +4,26 @@
 
 // entries: the parsed files; alive(pid) tells whether the process is
 // still there (a session that crashed leaves "busy" behind).
-// Returns {working, idle}: working are the busy sessions, the newest
-// first, as {id, name, folder, since, pid}; idle is a Set of the ids of
-// sessions that are there and not busy.
+// Returns {working, idle}: working are the busy sessions and those
+// waiting for an answer, the newest first, as {id, name, folder, since,
+// pid, waiting, entry}; waiting is what it waits for ("permission",
+// "input needed") or null; idle is a Set of the ids of sessions that are
+// there and neither.
 export function readWork(entries, alive) {
     const working = [];
     const idle = new Set();
     for (const entry of entries) {
         if (!entry || typeof entry.sessionId !== 'string' || !alive(entry.pid))
             continue;
-        if (entry.status !== 'busy') {
+        const waiting = entry.status === 'waiting';
+        if (entry.status !== 'busy' && !waiting) {
             idle.add(entry.sessionId);
             continue;
         }
         const folder = String(entry.cwd ?? '').split('/').filter(Boolean).at(-1) ?? '';
         const since = Number.isFinite(entry.statusUpdatedAt) ? entry.statusUpdatedAt : (entry.startedAt ?? 0);
-        working.push({id: entry.sessionId, name: entry.name || folder || 'Claude', folder, since, pid: entry.pid});
+        working.push({id: entry.sessionId, name: entry.name || folder || 'Claude', folder, since, pid: entry.pid,
+            waiting: waiting ? String(entry.waitingFor || 'input') : null, entry});
     }
     working.sort((a, b) => b.since - a.since);
     return {working, idle};

@@ -230,6 +230,40 @@
     font-feature-settings: "tnum";
 }
 
+/* Claude at work */
+.islands-claude-opened {
+    padding: 16px 24px 16px 24px;
+    spacing: 8px;
+}
+
+.islands-claude-head {
+    spacing: 10px;
+}
+
+.islands-claude-name {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.islands-claude-time {
+    font-size: 20px;
+    font-weight: 600;
+    font-feature-settings: "tnum";
+}
+
+.islands-claude-line {
+    font-size: 13px;
+}
+
+.islands-claude-feet {
+    spacing: 12px;
+}
+
+.islands-claude-foot {
+    font-size: 11px;
+    color: #8e8e93;
+}
+
 /* Glance */
 .islands-glance {
     padding: 10px 28px;

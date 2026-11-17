@@ -54,7 +54,8 @@ export const OPENED = {
     glance5: [452, 156, 40],
     timer: [452, 110, 40],
     alarm: [452, 110, 40],
-    claude: [452, 110, 40],
+    // Claude at work: name and time, its step and bar, tool and model.
+    claude: [452, 124, 40],
     progress: [452, 110, 40],
     recording: [452, 78, 36],
     privacy: [452, 78, 36],

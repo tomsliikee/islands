@@ -9,8 +9,32 @@ import {ClaudeWorkSource} from '../../../extension/sources/claudework.js';
 
 export default async function ({island, shot, sleep, note, moveTo}) {
     const dir = GLib.dir_make_tmp('islands-sessions-XXXXXX');
-    const write = (pid, id, status, name, since = Date.now()) => GLib.file_set_contents(`${dir}/${pid}.json`, JSON.stringify(
-        {pid, sessionId: id, cwd: '/home/toms/git/demo', name, status, startedAt: since, statusUpdatedAt: since}));
+    const log = `${dir}/two.jsonl`;
+    const write = (pid, id, status, name, since = Date.now(), extra = {}) => GLib.file_set_contents(`${dir}/${pid}.json`, JSON.stringify(
+        {pid, sessionId: id, cwd: '/home/toms/git/demo', name, status, startedAt: since, statusUpdatedAt: since, logPath: log, ...extra}));
+    // Transcript lines, appended as Claude Code does.
+    const lines = [];
+    const add = (...more) => {
+        lines.push(...more.map(line => JSON.stringify(line)));
+        GLib.file_set_contents(log, `${lines.join('\n')}\n`);
+    };
+    const usage = {input_tokens: 2, cache_read_input_tokens: 81000, output_tokens: 40};
+    const use = (id, name, input) => ({type: 'assistant', message: {model: 'claude-opus-5-5', usage, content: [{type: 'tool_use', id, name, input}]}});
+    const plan = (items, input = {}) => use(`p${lines.length}`, 'mcp__ccd_turn__update_plan',
+        items ? {items: items.map(([content, status]) => ({content, status}))} : input);
+    const opened = () => {
+        const content = island.view._content;
+        const texts = [];
+        const walk = actor => {
+            if (actor.text !== undefined && actor.visible)
+                texts.push(actor.text);
+            for (const child of actor.get_children?.() ?? [])
+                walk(child);
+        };
+        if (content)
+            walk(content);
+        return texts.join(' | ');
+    };
     const shape = () => {
         const {x, y, width, height} = island.view.shape;
         const main = island._state?.main;
@@ -24,12 +48,26 @@ export default async function ({island, shot, sleep, note, moveTo}) {
     const source = new ClaudeWorkSource(island, dir);
     await sleep(800);
     note(`busy at start: ${shape()} (compact, not opened)`);
+    add(plan([['Read the code', 'completed'], ['Write the parser', 'in_progress'], ['Test it', 'pending']]),
+        use('b1', 'Bash', {description: 'Run the unit tests', command: 'gjs -m t.js'}));
     write(other, 'two', 'busy', 'Island work');
     await sleep(1200);
-    note(`second starts: ${shape()}`);
+    note(`second starts: ${shape()} :: ${opened()}`);
     await shot('claudework-two');
-    await sleep(3200);
+    add({type: 'user', message: {content: [{type: 'tool_result', tool_use_id: 'b1'}]}}, plan(null, {advance: true}),
+        use('e1', 'Edit', {file_path: '/home/toms/git/demo/island.js'}));
+    await sleep(1500);
+    note(`step moved: ${shape()} :: ${opened()}`);
+    await shot('claudework-step');
+    await sleep(2000);
     note(`second rests: ${shape()}`);
+    write(other, 'two', 'waiting', 'Island work', Date.now(), {waitingFor: 'permission'});
+    await sleep(900);
+    note(`waiting opens: ${shape()} :: ${opened()} compact=${island._state?.main?.timeAt?.()}`);
+    await shot('claudework-waiting');
+    write(other, 'two', 'busy', 'Island work');
+    await sleep(3800);
+    note(`back to work rests: ${shape()} activities=${island.activities.map(a => a.id).join(',')}`);
     write(other, 'two', 'idle', 'Island work');
     await sleep(900);
     note(`second done: ${island.activities.map(a => a.id).join(',')} ${shape()}`);
@@ -41,5 +79,6 @@ export default async function ({island, shot, sleep, note, moveTo}) {
     note(`file removed (no done): ${island.activities.map(a => a.id).join(',')}`);
     source.destroy();
     GLib.unlink(`${dir}/${other}.json`);
+    GLib.unlink(log);
     Gio.File.new_for_path(dir).delete(null);
 }

@@ -138,6 +138,10 @@ test('only busy and alive sessions work, newest first', () => {
     ], pid => pid !== 999);
     equal([working.map(s => s.id), working.map(s => s.name), [...idle]], [['bb', 'a'], ['islands', 'Old'], ['ccc']]);
 });
+test('waiting for an answer is work, not idle', () => {
+    const {working, idle} = readWork([file('a', 'waiting', {waitingFor: 'permission'}), file('b', 'waiting')], () => true);
+    equal([working.map(s => s.waiting), idle.size], [['permission', 'input'], 0]);
+});
 test('a session without a name or folder is Claude', () => equal(readWork([file('a', 'busy', {cwd: '', name: ''})], () => true).working[0].name, 'Claude'));
 test('done means idle now, not crashed', () => equal(
     finished(new Map([['a', {}], ['b', {}], ['c', {}]]), new Set(['b', 'x'])), ['b']));
