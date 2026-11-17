@@ -62,6 +62,11 @@
       <summary>Glance on hover</summary>
       <description>The empty island grows to show the next event, weather and stats while the pointer is on it.</description>
     </key>
+    <key name="glance-items" type="as">
+      <default>['weather', 'event', 'claude', 'ollama', 'phone', 'cpu', 'gpu', 'temps', 'memory', 'disk', 'battery']</default>
+      <summary>What the glance shows</summary>
+      <description>The pieces of the glance that are on: weather, event, claude, ollama, phone, cpu, gpu, temps, memory, disk, battery, uptime. At most five lines show.</description>
+    </key>
     <key name="hover-open" type="b">
       <default>false</default>
       <summary>Open on hover</summary>

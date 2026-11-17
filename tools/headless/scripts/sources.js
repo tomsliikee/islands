@@ -7,7 +7,7 @@ import GLib from 'gi://GLib';
 
 const here = GLib.path_get_dirname(GLib.path_get_dirname(GLib.getenv('ISLANDS_SCRIPT')));
 
-export default async function ({island, settings, shot, sleep, note, moveTo, click, Main}) {
+export default async function ({island, settings, shot, sleep, note, moveTo, click, Main, extension}) {
     const shape = () => {
         const {x, y, width, height} = island.view.shape;
         const main = island._state?.main;
@@ -99,4 +99,34 @@ export default async function ({island, settings, shot, sleep, note, moveTo, cli
     player.force_exit();
     await sleep(2500);
     note(`all over: ${shape()} activities=${island.activities.map(a => a.kind).join(',')}`);
+
+    // Lasting statuses and the colour scheme word.
+    const desk = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
+    const notes = new Gio.Settings({schema_id: 'org.gnome.desktop.notifications'});
+    const ids = () => island.activities.map(a => a.id).join(',');
+    desk.set_string('color-scheme', 'prefer-light');
+    await sleep(700);
+    note(`light mode: ${shape()} activities=${ids()}`);
+    await sleep(2500);
+    note(`light mode after 3 s: activities=${ids()} (gone)`);
+    notes.set_boolean('show-banners', false);
+    await sleep(700);
+    note(`do not disturb on: ${shape()}`);
+    await sleep(2500);
+    note(`do not disturb after 3 s: ${shape()} activities=${ids()} (rests)`);
+    notes.set_boolean('show-banners', true);
+    await sleep(700);
+    note(`do not disturb off: ${shape()} activities=${ids()}`);
+    await sleep(2500);
+    const fake = {get_name: () => 'STICK', can_eject: () => true, can_unmount: () => true, get_drive: () => null,
+        get_symbolic_icon: () => null, get_root: () => ({get_uri: () => 'file:///'}), eject_with_operation() {}};
+    const drives = extension._sources.find(source => source.constructor.name === 'DrivesSource');
+    drives._added(fake);
+    await sleep(700);
+    note(`stick: ${shape()}`);
+    await sleep(6500);
+    note(`stick after 7 s: ${shape()} activities=${ids()} (rests)`);
+    drives._removed(fake);
+    await sleep(700);
+    note(`stick removed: activities=${ids()}`);
 }

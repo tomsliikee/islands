@@ -183,7 +183,7 @@ test('the glance without weather or events is empty', () => equal(glanceItems(nu
 test('the stats: battery, memory, heat, disk, uptime', () => equal(
     statsItems({battery: {percent: 82.4, charging: false}, memoryUsed: 0.412, temperature: 52.6, diskFree: 120.4e9, uptime: 3 * 3600 + 5 * 60},
         (p, c) => `bat-${p}-${c}`).map(item => `${item.icon}:${item.text}`),
-    ['bat-82.4-false:82 %', 'speed:RAM 41 %', 'computer:53 °C', 'folder:120 GB free', 'schedule:up 3 h 5 min']));
+    ['bat-82.4-false:Battery 82 %', 'utilities-system-monitor-symbolic:RAM 41 %', 'computer-symbolic:53 °C', 'drive-harddisk-symbolic:120 GB free', 'preferences-system-time-symbolic:up 3 h 5 min']));
 test('the stats leave out what is unknown', () => equal(statsItems({uptime: 59}, () => '').map(item => item.text), ['up 0 min']));
 test('Claude on hover: five hours, week, when the five hours start again', () => equal(
     claudeItems({session: {percent: 13.4, resetsAt: 1000 + 2 * 3600e3 + 5 * 60e3}, week: {percent: 37, resetsAt: null}}, 1000),

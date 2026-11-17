@@ -43,7 +43,7 @@ export class OllamaSource {
 
     get glance() {
         const model = this._island.allows('progress') ? this._models[0] : null;
-        return model ? {icon: 'applications-science-symbolic', text: ollamaText(model, timeOf)} : null;
+        return model ? {id: 'ollama', icon: 'applications-science-symbolic', text: ollamaText(model, timeOf)} : null;
     }
 
     // Asking goes on while tomsllama runs or a model is loaded.

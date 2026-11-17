@@ -8,6 +8,7 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import {draggedAway} from '../lib/drag.js';
 import {radiusAt} from '../lib/geometry.js';
 import {overflowText} from '../lib/bubbles.js';
 import {ShapeBlur} from './blur.js';
@@ -38,7 +39,7 @@ function fade(actor, opacity, duration, delay = 0, onComplete = null) {
 }
 
 export class IslandView {
-    // handlers: onClick(button), onHover(hovered), onBubble(slot, button),
+    // handlers: onClick(button), onDragAway(), onHover(hovered), onBubble(slot, button),
     // onScroll(event), context(activity) => what a look may use.
     constructor(handlers) {
         this._handlers = handlers;
@@ -68,12 +69,31 @@ export class IslandView {
         // pick missed the shape (mid-resize, or a hover cleared under the
         // pointer), nothing else would come until the pointer left and came
         // back. A motion over the shape is proof the pointer is on it.
-        this.shape.connect('motion-event', () => {
+        // A press that moves sideways by DRAG_AWAY_PX is a pull: on release
+        // the island is put away, and the release is not a click.
+        this._pressX = null;
+        this._dragged = false;
+        this.shape.connect('button-press-event', (_actor, event) => {
+            if (event.get_button() === Clutter.BUTTON_PRIMARY) {
+                this._pressX = event.get_coords()[0];
+                this._dragged = false;
+            }
+            return Clutter.EVENT_PROPAGATE;
+        });
+        this.shape.connect('motion-event', (_actor, event) => {
+            if (this._pressX !== null && !this._dragged && draggedAway(this._pressX, event.get_coords()[0]))
+                this._dragged = true;
             this._handlers.onMotion?.();
             return Clutter.EVENT_PROPAGATE;
         });
         this.shape.connect('button-release-event', (_actor, event) => {
-            this._handlers.onClick?.(event.get_button());
+            const dragged = this._dragged;
+            this._pressX = null;
+            this._dragged = false;
+            if (dragged && event.get_button() === Clutter.BUTTON_PRIMARY)
+                this._handlers.onDragAway?.();
+            else
+                this._handlers.onClick?.(event.get_button());
             return Clutter.EVENT_STOP;
         });
         this.shape.connect('scroll-event', (_actor, event) => {

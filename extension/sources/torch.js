@@ -8,7 +8,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 
-import {machineText, newEaters, readTorch} from '../lib/signals.js';
+import {machineParts, newEaters, readTorch} from '../lib/signals.js';
 
 const NAME = 'io.github.tomsliikee.Torch';
 const PATH = '/io/github/tomsliikee/Torch';
@@ -18,8 +18,10 @@ function appName(id) {
 }
 
 export class TorchSource {
-    constructor(island) {
+    // temps: () => whether the glance shows heat beside the load.
+    constructor(island, temps = null) {
         this._island = island;
+        this._temps = temps;
         this._state = null;
         this._proxy = null;
         this._cancellable = new Gio.Cancellable();
@@ -39,8 +41,7 @@ export class TorchSource {
     }
 
     get glance() {
-        const text = this._island.allows('torch') ? machineText(this._state) : null;
-        return text ? {icon: 'power-profile-performance-symbolic', text} : null;
+        return this._island.allows('torch') ? machineParts(this._state, this._temps?.() ?? true) : [];
     }
 
     _read(first = false) {

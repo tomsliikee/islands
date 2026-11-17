@@ -12,7 +12,7 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import {copiedText, lockTitle} from '../lib/words.js';
+import {copiedText, isHeadsetOutput, lockTitle, themeTitle} from '../lib/words.js';
 
 const SHORT_MS = 2000;
 
@@ -83,9 +83,14 @@ export class DndSource {
             if (!this._island.allows('dnd'))
                 return;
             const quiet = !this._settings.get_boolean('show-banners');
-            this._island.set({id: 'dnd', kind: 'osd', hint: true, source: 'dnd', duration: SHORT_MS,
-                icon: quiet ? 'notifications-disabled-symbolic' : 'preferences-system-notifications-symbolic',
-                title: quiet ? 'Do not disturb' : 'Notifications on'});
+            if (quiet) {
+                // Opens, then rests in the bar while it is on.
+                this._island.set({id: 'dnd', kind: 'status', source: 'dnd', opensFor: true, opens: true, lasting: true,
+                    duration: SHORT_MS, icon: 'notifications-disabled-symbolic', title: 'Do not disturb', short: 'Do not disturb'});
+                return;
+            }
+            this._island.set({id: 'dnd', kind: 'osd', hint: true, source: 'dnd', duration: SHORT_MS, at: Date.now(),
+                icon: 'preferences-system-notifications-symbolic', title: 'Notifications on'});
         });
     }
 
@@ -107,6 +112,7 @@ export class AudioSource {
             this._ready = true;
             return GLib.SOURCE_REMOVE;
         });
+        this._headsetAt = 0;
         this._cancellable = new Gio.Cancellable();
     }
 
@@ -117,11 +123,19 @@ export class AudioSource {
         if (!device)
             return;
         const name = device.description || device.origin || 'Output';
-        const show = battery => this._island.set({
-            id: 'audio', kind: 'osd', hint: true, source: 'audio', duration: SHORT_MS * 1.5,
-            icon: device.get_gicon?.() ?? 'audio-speakers-symbolic',
-            title: battery === null ? name : `${name} · ${battery} %`,
-        });
+        const headset = isHeadsetOutput({iconName: device.get_icon_name?.() ?? '', name});
+        const icon = device.get_gicon?.() ?? 'audio-speakers-symbolic';
+        // A headset opens, then rests in the bar while it is the output;
+        // another output is a word.
+        const show = battery => this._island.set(headset
+            ? {id: 'audio', kind: 'status', source: 'audio', opensFor: true, opens: true, lasting: true, duration: SHORT_MS * 1.5,
+                at: this._headsetAt, icon, title: battery === null ? name : `${name} · ${battery} %`, short: name}
+            : {id: 'audio', kind: 'osd', hint: true, source: 'audio', duration: SHORT_MS * 1.5, at: Date.now(),
+                icon, title: battery === null ? name : `${name} · ${battery} %`});
+        if (headset)
+            this._headsetAt = Date.now();
+        else
+            this._island.remove('audio');
         show(null);
         this._headsetBattery(battery => {
             if (battery !== null)
@@ -168,6 +182,27 @@ export class AudioSource {
     }
 }
 
+// Dark or light mode switched: a word, then gone.
+export class ThemeSource {
+    constructor(island) {
+        this._island = island;
+        this._settings = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
+        this._id = this._settings.connect('changed::color-scheme', () => {
+            if (!this._island.allows('theme'))
+                return;
+            const dark = this._settings.get_string('color-scheme') === 'prefer-dark';
+            this._island.set({id: 'theme', kind: 'osd', hint: true, source: 'theme', duration: SHORT_MS, at: Date.now(),
+                icon: dark ? 'weather-clear-night-symbolic' : 'weather-clear-symbolic',
+                title: themeTitle(this._settings.get_string('color-scheme'))});
+        });
+    }
+
+    destroy() {
+        this._settings.disconnect(this._id);
+        this._island.remove('theme');
+    }
+}
+
 export class DrivesSource {
     constructor(island) {
         this._island = island;
@@ -189,7 +224,7 @@ export class DrivesSource {
         const id = `drive:${name}`;
         const open = () => Gio.AppInfo.launch_default_for_uri(mount.get_root().get_uri(), global.create_app_launch_context(0, -1));
         this._island.set({
-            id, kind: 'file', hint: true, source: 'drives', look: 'actions', duration: 6000,
+            id, kind: 'status', source: 'drives', look: 'actions', opensFor: true, opens: true, lasting: true, duration: 6000,
             icon: mount.get_symbolic_icon() ?? 'drive-removable-media-symbolic',
             title: name, short: name, note: 'Connected',
             actions: [

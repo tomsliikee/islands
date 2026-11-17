@@ -26,7 +26,7 @@ export class ClaudeSource {
         if (!this._island.allows('claude'))
             return null;
         const [item] = claudeItems(this._limits, Date.now());
-        return item ? {icon: 'chat-message-new-symbolic', text: item.text} : null;
+        return item ? {id: 'claude', icon: 'chat-message-new-symbolic', text: item.text} : null;
     }
 
     _read(first = false) {

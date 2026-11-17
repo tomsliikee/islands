@@ -10,12 +10,16 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {ExtensionState} from 'resource:///org/gnome/shell/misc/extensionUtils.js';
 
 import {Island} from './island.js';
+import {GLANCE_DEFAULT, glanceLines} from './lib/glance.js';
+import {batteryIcon} from './lib/barwords.js';
 import {BannerSource} from './sources/banners.js';
 import {ChargeSource} from './sources/charge.js';
+import {ClaudeWorkSource} from './sources/claudework.js';
 import {Battery} from './sources/battery.js';
 import {ClaudeSource} from './sources/claude.js';
 import {DownloadsSource} from './sources/downloads.js';
 import {EventsSource} from './sources/events.js';
+import {MachineSource} from './sources/machine.js';
 import {MediaSource} from './sources/media.js';
 import {OllamaSource} from './sources/ollama.js';
 import {OsdSource} from './sources/osd.js';
@@ -23,7 +27,7 @@ import {PhoneSource} from './sources/phone.js';
 import {PrivacySource} from './sources/privacy.js';
 import {QuickNote} from './sources/quicknote.js';
 import {SteamSource} from './sources/steam.js';
-import {AudioSource, ClipboardSource, DndSource, DrivesSource, LocksSource} from './sources/system.js';
+import {AudioSource, ClipboardSource, DndSource, DrivesSource, LocksSource, ThemeSource} from './sources/system.js';
 import {TimerSource} from './sources/timer.js';
 import {TorchSource} from './sources/torch.js';
 import {UpdatesSource} from './sources/updates.js';
@@ -60,6 +64,7 @@ export default class IslandsExtension extends Extension {
             new TimerSource(this._island, this._timers),
             new PrivacySource(this._island),
             new ChargeSource(this._island),
+            new ClaudeWorkSource(this._island),
         ];
         this._events = new EventsSource(this._island);
         // Apps that tell what they do, each with a line for the glance:
@@ -69,7 +74,8 @@ export default class IslandsExtension extends Extension {
             new WeatherSource(this._island),
             new PhoneSource(this._island),
             new ClaudeSource(this._island),
-            new TorchSource(this._island),
+            new TorchSource(this._island, () => this._glanceOn().has('temps')),
+            new MachineSource(this._island, batteryIcon),
             new OllamaSource(this._island),
         ];
         this._sources.push(...this._glances, new DownloadsSource(this._island), new SteamSource(this._island));
@@ -79,19 +85,27 @@ export default class IslandsExtension extends Extension {
             new UpdatesSource(this._island),
             new ClipboardSource(this._island),
             new DndSource(this._island),
+            new ThemeSource(this._island),
             new LocksSource(this._island),
             new AudioSource(this._island),
             new DrivesSource(this._island),
             this._quickNote,
         );
-        // The glance on hover: one line from each source that has one.
+        // The glance on hover: what the sources tell, set into centred lines
+        // by topic; the settings choose which pieces show.
         this._island.setGlance(() => {
-            const items = (this._glances ?? []).map(source => source.glance).filter(Boolean);
+            const pieces = (this._glances ?? []).flatMap(source => source.glance ?? []);
+            const items = glanceLines(pieces, this._glanceOn());
             return items.length > 0 ? {items} : null;
         });
         const active = this.conflicts;
         if (active.length > 0)
             console.warn(`Islands: these extensions change the same bar centre: ${active.join(', ')}`);
+    }
+
+    // The glance pieces switched on in the settings.
+    _glanceOn() {
+        return new Set(this._settings?.get_strv('glance-items') ?? GLANCE_DEFAULT);
     }
 
     disable() {

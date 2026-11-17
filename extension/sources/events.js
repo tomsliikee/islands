@@ -53,7 +53,7 @@ export class EventsSource {
         const when = starts <= now
             ? `now, until ${GLib.DateTime.new_from_unix_local(Math.floor(next.end.getTime() / 1000)).format('%H:%M')}`
             : `at ${time}`;
-        return {icon: 'x-office-calendar-symbolic', text: `${next.summary || 'Event'} ${when}`};
+        return {id: 'event', icon: 'x-office-calendar-symbolic', text: `${next.summary || 'Event'} ${when}`};
     }
 
     _events(now) {

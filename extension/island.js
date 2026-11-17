@@ -76,6 +76,7 @@ export class Island {
 
         this.view = new IslandView({
             onClick: button => this._click(button),
+            onDragAway: () => this._dragAway(),
             onHover: hovered => this._hover(hovered),
             onMotion: () => this._motion(),
             onBubble: (slot, button) => this._bubble(slot, button),
@@ -268,7 +269,7 @@ export class Island {
                 mode = 'opened';
             else
                 mode = 'compact';
-        } else if (this._hovered) {
+        } else if (this._hovered && this._onRest()) {
             const glance = settings.get_boolean('hover-glance') ? this._glance?.() : null;
             if (glance?.items?.length) {
                 const lines = Math.min(5, glance.items.length);
@@ -490,14 +491,30 @@ export class Island {
     // so it is inside, whatever the one enter before said. Only acts when
     // the hover was missed or a leave is pending; otherwise free.
     _motion() {
-        if (this._hovered && !this._leaveId)
+        if (this._hovered && !this._leaveId) {
+            // The empty island grown under the pointer (hover look, glance)
+            // takes input only where the empty island rests, so it never
+            // covers a bubble: leaving that spot lets it shrink back.
+            if (!this._state?.main && this._state?.mode !== 'idle' && !this._onRest())
+                this.update();
             return;
+        }
         this._clearTimeouts(['_leaveId']);
         this._wantPeek(this.view.bubbleAtPointer());
         if (!this._hovered) {
             this._setHovered(true);
             this.update();
         }
+    }
+
+    // Whether the pointer is over the empty island at rest (its place in the
+    // bar, whatever size it has grown to). True when that is not known.
+    _onRest() {
+        const rest = this._state?.rest;
+        if (!rest || !this._state?.visible)
+            return true;
+        const [x, y] = global.get_pointer();
+        return x >= rest.x && x < rest.x + rest.width && y >= rest.y && y < rest.y + rest.height;
     }
 
     // A bubble under the pointer: its activity shows after HOVER_OPEN_MS.
@@ -564,18 +581,32 @@ export class Island {
         this._close();
     }
 
+    // What is shown steps aside: a message goes, what lasts becomes a bubble
+    // (the empty island takes its place; a click on the bubble brings it back).
+    _stepAside(main) {
+        if (main.hint)
+            this._activities.delete(main.id);
+        else
+            this._dismissed.add(main.id);
+        this._expanded = null;
+        this._peek = null;
+        main.onDismiss?.();
+        this.update();
+    }
+
+    // The island was pulled sideways with the mouse. Nothing to put away
+    // on the empty island.
+    _dragAway() {
+        const main = this._state?.main;
+        if (main)
+            this._stepAside(main);
+    }
+
     _click(button) {
         const main = this._state?.main;
         // Right click: what lasts steps aside into a bubble; a message goes.
         if (button === Clutter.BUTTON_SECONDARY && main) {
-            if (main.hint)
-                this._activities.delete(main.id);
-            else
-                this._dismissed.add(main.id);
-            this._expanded = null;
-            this._peek = null;
-            main.onDismiss?.();
-            this.update();
+            this._stepAside(main);
             return;
         }
         if (!main) {

@@ -196,6 +196,12 @@ export class BannerSource {
         // Claude Code (and the Claude app) say an answer is ready this way;
         // the Claude switch decides about them, and they wear its colour.
         const claude = /claude/i.test(`${app} ${appIdOf(source) ?? ''}`);
+        // Claude's own "Done" from the session files is already up: the
+        // banner would say the same twice.
+        if (claude && this._island.activities.some(activity => activity.id.startsWith('claude-done:'))) {
+            acknowledge();
+            return;
+        }
         this._island.set({
             id, kind: 'notification', hint: true, source: claude ? 'claude' : 'notification',
             color: claude ? CLAUDE : null,

@@ -73,6 +73,24 @@ export function lowMark(before, after) {
     return LOW_MARKS.filter(mark => before.percent > mark && after.percent <= mark).at(-1) ?? null;
 }
 
+// What changed in the laptop's charge between two readings
+// ({percent, charging, full}): 'plugged', 'unplugged', 'full' (also on
+// plugging in a full battery), 'low20' / 'low10' on the way down, 'level'
+// while the percent moves on the charger, or null.
+export function chargeChange(before, after) {
+    if (!before || !after)
+        return null;
+    if (before.charging !== after.charging)
+        return after.charging ? (after.full ? 'full' : 'plugged') : 'unplugged';
+    if (after.charging) {
+        if (after.full && !before.full)
+            return 'full';
+        return before.percent !== after.percent ? 'level' : null;
+    }
+    const mark = lowMark(before, after);
+    return mark === null ? null : `low${mark}`;
+}
+
 // "web-shop · working for 3 min"; since in ms, now in ms.
 export function claudeNote(session, now) {
     if (session.state === 'waiting')
@@ -195,6 +213,16 @@ export function workspaceNote(windows) {
     return windows === 1 ? '1 window' : `${windows} windows`;
 }
 
+// Whether a sound output sits on a head (a headset, headphones, Bluetooth).
+export function isHeadsetOutput({iconName = '', name = ''} = {}) {
+    return /headset|headphone|bluez|bluetooth/i.test(`${iconName} ${name}`);
+}
+
+// The colour scheme as a word ('default' is the light one).
+export function themeTitle(scheme) {
+    return scheme === 'prefer-dark' ? 'Dark mode' : 'Light mode';
+}
+
 export function lockTitle(kind, on) {
     return `${kind === 'caps' ? 'Caps Lock' : 'Num Lock'} ${on ? 'on' : 'off'}`;
 }
@@ -239,15 +267,15 @@ export function claudeItems(limits, now) {
 export function statsItems({battery = null, memoryUsed = null, temperature = null, diskFree = null, uptime = null}, batteryIconFor) {
     const items = [];
     if (battery && Number.isFinite(battery.percent))
-        items.push({icon: batteryIconFor(battery.percent, battery.charging), text: `${Math.round(battery.percent)} %`});
+        items.push({id: 'battery', icon: batteryIconFor(battery.percent, battery.charging), text: `Battery ${Math.round(battery.percent)} %`});
     if (Number.isFinite(memoryUsed))
-        items.push({icon: 'speed', text: `RAM ${Math.round(100 * memoryUsed)} %`});
+        items.push({id: 'memory', icon: 'utilities-system-monitor-symbolic', text: `RAM ${Math.round(100 * memoryUsed)} %`});
     if (Number.isFinite(temperature))
-        items.push({icon: 'computer', text: `${Math.round(temperature)} °C`});
+        items.push({id: 'temps', icon: 'computer-symbolic', text: `${Math.round(temperature)} °C`});
     if (Number.isFinite(diskFree))
-        items.push({icon: 'folder', text: `${sizeText(diskFree)} free`});
+        items.push({id: 'disk', icon: 'drive-harddisk-symbolic', text: `${sizeText(diskFree)} free`});
     if (Number.isFinite(uptime) && uptime >= 0)
-        items.push({icon: 'schedule', text: `up ${uptimeText(uptime)}`});
+        items.push({id: 'uptime', icon: 'preferences-system-time-symbolic', text: `up ${uptimeText(uptime)}`});
     return items;
 }
 

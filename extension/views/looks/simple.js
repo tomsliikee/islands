@@ -185,11 +185,13 @@ export const BATTERY = {
 // look (the next event, the phone, Claude's limits, the machine).
 export const GLANCE = {
     compact: GENERIC.compact,
+    // Each line is centred, the first a little stronger; the lines share
+    // the height evenly, so one more or less keeps the island balanced.
     opened(activity, size) {
         const rows = (activity.items ?? []).map((item, i) => row([
             icon(item.icon, 'islands-glance-icon'),
-            label(item.text, i === 0 ? 'islands-glance-first' : 'islands-glance-line', {x_expand: true}),
-        ], {style_class: 'islands-glance-row'}));
+            label(item.text, i === 0 ? 'islands-glance-first' : 'islands-glance-line'),
+        ], {style_class: 'islands-glance-row', x_align: Clutter.ActorAlign.CENTER, y_expand: true}));
         return column(rows, {style_class: 'islands-glance', width: size.width, height: size.height});
     },
 };

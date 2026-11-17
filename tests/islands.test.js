@@ -2,6 +2,9 @@ import {alertState, nextCheck, openMs} from '../extension/lib/alerts.js';
 import {arrange, bubbleLimit, bubbleSlots, overflowText} from '../extension/lib/bubbles.js';
 import {BUBBLE_GAP, layout, pillHeight, pillTop, radiusAt, shapeFor} from '../extension/lib/geometry.js';
 import {fresh, motionOn, pollAllowed, tickMs, tickRate} from '../extension/lib/power.js';
+import {draggedAway} from '../extension/lib/drag.js';
+import {isHeadsetOutput, themeTitle} from '../extension/lib/words.js';
+import {finished, readWork} from '../extension/lib/sessions.js';
 import {pick} from '../extension/lib/rank.js';
 import {test, equal, done} from './harness.js';
 
@@ -107,4 +110,35 @@ test('next check when the time runs out, none while hovered', () => equal(
     [nextCheck({kind: 'file', at: 1000}, 2000), nextCheck({kind: 'file', at: 0}, 9000), nextCheck({kind: 'file', at: 0}, 0, {hovered: true})],
     [7000, null, null]));
 
+test('charging rests beside music, below it in rank', () => {
+    const charge = at('battery', 'battery', 8, {lasting: true, opensFor: true});
+    const {main, bubble} = pick([charge, media]);
+    equal([main.id, bubble.id], ['media', 'battery']);
+});
+test('charging ranks below progress', () => equal(arrange([at('battery', 'battery', 9), progress]).main.id, 'dl'));
+test('a pull needs 40 px sideways', () => equal(
+    [draggedAway(100, 139), draggedAway(100, 140), draggedAway(100, 60), draggedAway(100, 100), draggedAway(100, 120, 10)],
+    [false, true, true, false, true]));
+test('headsets are told from speakers', () => equal([
+    isHeadsetOutput({iconName: 'audio-headphones-symbolic', name: 'Headphones'}),
+    isHeadsetOutput({iconName: 'audio-speakers-symbolic', name: 'Built-in Audio'}),
+    isHeadsetOutput({iconName: 'audio-card-symbolic', name: 'WH-1000XM5 (Bluetooth)'}),
+], [true, false, true]));
+test('colour scheme words', () => equal(['prefer-dark', 'default', 'prefer-light'].map(themeTitle), ['Dark mode', 'Light mode', 'Light mode']));
+test('status is its own kind in the bar', () => equal(shapeFor('status', 'compact', 26).width, 260));
+test('a status rests beside music', () => {
+    const {main, bubble} = pick([media, at('dnd', 'status', 9, {lasting: true, opensFor: true})]);
+    equal([main.id, bubble.id], ['media', 'dnd']);
+});
+const file = (id, status, extra = {}) => ({sessionId: id, pid: id.length, status, cwd: '/home/toms/git/islands', startedAt: 1, statusUpdatedAt: 5, ...extra});
+test('only busy and alive sessions work, newest first', () => {
+    const {working, idle} = readWork([
+        file('a', 'busy', {statusUpdatedAt: 5, name: 'Old'}), file('bb', 'busy', {statusUpdatedAt: 9}), file('ccc', 'idle'),
+        file('dddd', 'busy', {pid: 999}), null, {pid: 1, status: 'busy'},
+    ], pid => pid !== 999);
+    equal([working.map(s => s.id), working.map(s => s.name), [...idle]], [['bb', 'a'], ['islands', 'Old'], ['ccc']]);
+});
+test('a session without a name or folder is Claude', () => equal(readWork([file('a', 'busy', {cwd: '', name: ''})], () => true).working[0].name, 'Claude'));
+test('done means idle now, not crashed', () => equal(
+    finished(new Map([['a', {}], ['b', {}], ['c', {}]]), new Set(['b', 'x'])), ['b']));
 done('islands');

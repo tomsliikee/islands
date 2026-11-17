@@ -16,7 +16,7 @@ export function openMs(kind, length = 'normal') {
 }
 
 // Kinds whose message opens the island below the bar while one acts (a
-// volume step, Caps Lock); the others (battery) change only its compact
+// volume step, Caps Lock); the others change only its compact
 // form.
 export const OPENS = new Set(['notification', 'call', 'file', 'osd']);
 

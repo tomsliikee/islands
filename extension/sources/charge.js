@@ -1,13 +1,14 @@
-// The laptop's battery, from UPower's display device: a short word when
-// the charger is plugged in or out (canvas: 270 x 26 for 3 s), and when the
-// battery passes 20 % and 10 % on its way down (at 10 % it opens once). A
+// The laptop's battery, from UPower's display device: plugging in the
+// charger opens the island for 3 s and it then rests in the bar with the
+// charge until unplugged; unplugging, a full battery and the 20 % mark
+// open briefly, the 10 % mark stays until the charger is in. A
 // computer without a battery (the desktop PC) has no display device of
 // kind battery, and this source then does nothing.
 
 import Gio from 'gi://Gio';
 
 import {colors} from '../lib/tokens.js';
-import {lowMark} from '../lib/words.js';
+import {chargeChange} from '../lib/words.js';
 
 const NAME = 'org.freedesktop.UPower';
 const PATH = '/org/freedesktop/UPower/devices/DisplayDevice';
@@ -21,13 +22,14 @@ const SHOW_MS = 3000;
 export function readCharge(props) {
     if (!props || props.Type !== BATTERY || props.IsPresent === false)
         return null;
-    return {percent: Math.round(props.Percentage ?? 0), charging: props.State === CHARGING || props.State === FULL};
+    return {percent: Math.round(props.Percentage ?? 0), charging: props.State === CHARGING || props.State === FULL, full: props.State === FULL};
 }
 
 export class ChargeSource {
     constructor(island) {
         this._island = island;
         this._charge = null;
+        this._at = 0;
         this._cancellable = new Gio.Cancellable();
         Gio.DBusProxy.new_for_bus(Gio.BusType.SYSTEM, Gio.DBusProxyFlags.DO_NOT_AUTO_START, null,
             NAME, PATH, IFACE, this._cancellable, (_source, result) => {
@@ -38,6 +40,10 @@ export class ChargeSource {
                 }
                 this._proxy.connect('g-properties-changed', () => this._read());
                 this._charge = this._current();
+                // Already plugged in at start: rests in the bar at once
+                // (an opening time long past), without opening.
+                if (this._charge?.charging && !this._charge.full && this._island.allows('battery'))
+                    this._island.set(this._lasting(this._charge, 0));
             });
     }
 
@@ -58,23 +64,40 @@ export class ChargeSource {
     _changed(charge) {
         const before = this._charge;
         this._charge = charge;
-        if (!charge || !before || !this._island.allows('battery'))
+        if (!this._island.allows('battery'))
             return;
-        if (charge.charging !== before.charging) {
-            this._island.set({id: 'battery', kind: 'battery', hint: true, source: 'battery', duration: SHOW_MS,
-                icon: charge.charging ? 'battery-good-charging-symbolic' : 'battery-good-symbolic',
-                color: charge.charging ? colors.dark.up : null,
-                title: charge.charging ? 'Charging' : 'On battery', short: `${charge.percent} %`,
-                key: `${charge.charging}:${charge.percent}`});
+        const event = chargeChange(before, charge);
+        if (!event)
             return;
+        const percent = `${charge.percent} %`;
+        if (event === 'plugged' || event === 'level') {
+            // Opens once when plugged in, then rests in the bar; the
+            // percent moving on does not open it again.
+            if (event === 'plugged')
+                this._at = Date.now();
+            this._island.set(this._lasting(charge, this._at));
+        } else if (event === 'unplugged') {
+            this._island.set({id: 'battery', kind: 'battery', hint: true, opens: true, source: 'battery', at: Date.now(), duration: SHOW_MS,
+                icon: 'battery-good-symbolic', title: 'On battery', short: percent, key: `unplugged:${charge.percent}`});
+        } else if (event === 'full') {
+            this._island.set({id: 'battery', kind: 'battery', hint: true, opens: true, source: 'battery', at: Date.now(), duration: SHOW_MS,
+                icon: 'battery-full-charged-symbolic', color: colors.dark.up, title: 'Fully charged', short: percent});
+        } else if (event === 'low20') {
+            this._island.set({id: 'battery', kind: 'battery', hint: true, opens: true, source: 'battery', at: Date.now(), duration: SHOW_MS * 2,
+                icon: 'battery-caution-symbolic', title: `Battery at ${charge.percent} %`, short: percent});
+        } else if (event === 'low10') {
+            // Stays in the bar until the charger is plugged in.
+            this._island.set({id: 'battery', kind: 'battery', lasting: true, opensFor: true, opens: true, source: 'battery',
+                at: Date.now(), duration: SHOW_MS * 2, icon: 'battery-caution-symbolic', color: colors.dark.down,
+                title: `Battery at ${charge.percent} %`, short: percent, note: 'Plug in the charger soon'});
         }
-        const mark = lowMark(before, charge);
-        if (mark !== null) {
-            this._island.set({id: 'battery', kind: 'battery', hint: true, source: 'battery', duration: SHOW_MS * 2,
-                opens: mark <= 10, icon: 'battery-caution-symbolic', color: mark <= 10 ? colors.dark.down : null,
-                title: `Battery at ${charge.percent} %`, short: `${charge.percent} %`,
-                note: mark <= 10 ? 'Plug in the charger soon' : ''});
-        }
+    }
+
+    // The charging island: opened for SHOW_MS from `at`, then compact.
+    _lasting(charge, at) {
+        return {id: 'battery', kind: 'battery', lasting: true, opensFor: true, opens: true, source: 'battery',
+            duration: SHOW_MS, at, icon: 'battery-good-charging-symbolic', color: colors.dark.up,
+            title: 'Charging', short: `${charge.percent} %`};
     }
 
     destroy() {

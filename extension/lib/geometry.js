@@ -25,6 +25,7 @@ export const COMPACT_WIDTH = {
     duo: 236,
     osd: 300,
     battery: 270,
+    status: 260,
     call: 236,
     recording: 236,
     privacy: 236,
@@ -59,6 +60,7 @@ export const OPENED = {
     privacy: [452, 78, 36],
     osd: [452, 78, 36],
     battery: [452, 78, 36],
+    status: [452, 78, 36],
 };
 
 // One more line of a message's body (13 px text) when it unfolds.

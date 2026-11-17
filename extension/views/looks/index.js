@@ -11,6 +11,7 @@ register('actions', ACTIONS);
 register('timer', TIMER);
 register('alarm', ACTIONS);
 register('recording', TIMER);
+register('claude', TIMER);
 register('glance', GLANCE);
 register('note', NOTE);
 register('battery', BATTERY);

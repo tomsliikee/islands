@@ -27,21 +27,31 @@ export default async function ({extension, island, shot, sleep, note, moveTo, Ma
     await sleep(900);
 
     const charge = extension._sources.find(source => source.constructor.name === 'ChargeSource');
-    charge._charge = {percent: 82, charging: false};
-    charge.pretend({percent: 82, charging: true});
+    charge._charge = {percent: 82, charging: false, full: false};
+    charge.pretend({percent: 82, charging: true, full: false});
     await sleep(700);
     note(`plugged in: ${island._state.main?.title} ${island._state.main?.short} ${island._state.mode} ${island.view.shape.width}x${island.view.shape.height}`);
     await shot('battery-charging');
-    await sleep(3000);
-    charge.pretend({percent: 82, charging: false});
     await sleep(3500);
-    charge.pretend({percent: 21, charging: false});
-    charge.pretend({percent: 19, charging: false});
+    note(`charging rests: ${island._state.main?.id} ${island._state.main?.short} ${island._state.mode} ${island.view.shape.width}x${island.view.shape.height}`);
+    charge.pretend({percent: 83, charging: true, full: false});
+    await sleep(700);
+    note(`83 % while charging: ${island._state.main?.short} ${island._state.mode} (stays compact)`);
+    charge.pretend({percent: 83, charging: false, full: false});
+    await sleep(100);
+    await sleep(700);
+    note(`unplugged: ${island._state.main?.title} ${island._state.mode}`);
+    await sleep(3500);
+    note(`after unplugged: main=${island._state.main?.id ?? 'none'}`);
+    charge.pretend({percent: 21, charging: false, full: false});
+    charge.pretend({percent: 19, charging: false, full: false});
     await sleep(700);
     note(`20 % passed: ${island._state.main?.title} ${island._state.mode}`);
     await sleep(6500);
-    charge.pretend({percent: 9, charging: false});
+    charge.pretend({percent: 9, charging: false, full: false});
     await sleep(900);
     note(`10 % passed: ${island._state.main?.title} ${island._state.mode} ${island.view.shape.width}x${island.view.shape.height}`);
+    await sleep(6500);
+    note(`10 % rests: ${island._state.main?.title} ${island._state.mode}`);
     await shot('battery-low');
 }

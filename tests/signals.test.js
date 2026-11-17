@@ -1,7 +1,8 @@
 import {
-    bytesText, isQuietFile, machineText, newEaters, ollamaText, partialName, phoneLow, phoneText,
+    bytesText, isQuietFile, machineParts, machineText, newEaters, ollamaText, partialName, phoneLow, phoneText,
     readOllama, readPhone, readSteamLine, readTorch, steamName,
 } from '../extension/lib/signals.js';
+import {GLANCE_DEFAULT, glanceLines} from '../extension/lib/glance.js';
 import {test, equal, done} from './harness.js';
 
 // The shapes as the apps write them (read on 2026-11-15, values changed).
@@ -59,5 +60,24 @@ test('ollama ps', () => equal(
     [{name: 'qwen2.5:7b', size: 4.7e9, expiresAt: Date.parse('2026-11-15T17:42:00+01:00')}]));
 test('ollama nothing loaded or unreachable', () => equal([readOllama('{"models":[]}'), readOllama('')], [[], []]));
 test('ollama text', () => equal(ollamaText({name: 'llama3', size: 4.7e9, expiresAt: 1}, () => '17:42'), 'llama3 · 4.7 GB · until 17:42'));
+
+test('machine pieces: load with heat, heat left out when off', () => {
+    const state = {cpu: 71.2, gpu: 17, celsius: 54.4, gpuCelsius: null, eaters: []};
+    equal(machineParts(state).map(p => `${p.id}:${p.text}`), ['cpu:CPU 71 % 54 °C', 'gpu:GPU 17 %']);
+    equal(machineParts(state, false).map(p => p.text), ['CPU 71 %', 'GPU 17 %']);
+    equal(machineParts(null), []);
+});
+test('glance lines: pieces of a topic share a centred line, in order', () => equal(
+    glanceLines([
+        {id: 'cpu', icon: 'a', text: 'CPU 1 %'}, {id: 'gpu', icon: 'a', text: 'GPU 2 %'},
+        {id: 'event', icon: 'e', text: 'Standup at 10:00'}, {id: 'weather', icon: 'w', text: '6°'},
+        {id: 'disk', icon: 'd', text: '90 GB free'}, {id: 'memory', icon: 'm', text: 'RAM 40 %'},
+    ], GLANCE_DEFAULT),
+    [{icon: 'w', text: '6° · Standup at 10:00'}, {icon: 'a', text: 'CPU 1 % · GPU 2 %'}, {icon: 'm', text: 'RAM 40 % · 90 GB free'}]));
+test('glance lines: switched off or empty pieces leave no line', () => equal(
+    glanceLines([{id: 'cpu', icon: 'a', text: 'CPU 1 %'}, {id: 'uptime', icon: 'u', text: 'up 1 h'}, {id: 'weather', icon: 'w', text: ''}], ['cpu', 'weather']),
+    [{icon: 'a', text: 'CPU 1 %'}]));
+test('glance lines: a new piece gets its own line, five at most', () => equal(
+    glanceLines(['weather', 'claude', 'cpu', 'memory', 'battery', 'x'].map(id => ({id, icon: id, text: id})), ['weather', 'claude', 'cpu', 'memory', 'battery', 'x']).length, 5));
 
 done('signals');

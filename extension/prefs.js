@@ -18,6 +18,7 @@ const CONFLICTING = {
     'dynamic-music-pill@andbal': 'Dynamic Music Pill',
     'dynamic-panel@velhlkj.com': 'Dynamic Panel',
 };
+import {GLANCE_PARTS} from './lib/glance.js';
 
 // Activity sources with a switch each, in the island's fixed order.
 const SOURCES = [
@@ -27,6 +28,7 @@ const SOURCES = [
     ['notification', 'Notifications', 'Discord, mail, calendar and all others'],
     ['events', 'Events starting soon', 'From your calendars, ten minutes ahead and at the start'],
     ['file', 'Files', 'LocalSend and downloads'],
+    ['claude-work', 'Claude working', 'Rests in the bar with its name and time while a Claude Code session is busy'],
     ['claude', 'Claude', 'Finished answers; usage from Tally on hover'],
     ['phone', 'Phone', 'NectarLink: connected and battery on hover, a word when it runs low'],
     ['torch', 'Torch', 'An app that eats power, with a button to freeze it; CPU and GPU on hover'],
@@ -35,10 +37,11 @@ const SOURCES = [
     ['battery', 'Charging and battery', 'Laptop only: charger in or out, 20 % and 10 % left'],
     ['weather', 'Rain soon', 'From GNOME\'s weather; the sky and temperature on hover'],
     ['updates', 'System updates', 'When PackageKit finds new ones'],
-    ['audio', 'Sound output', 'A word when the output switches, with a headset\'s battery'],
-    ['drives', 'Drives', 'A USB stick or disk plugged in, with Open and Eject'],
+    ['audio', 'Sound output', 'A word when the output switches; a headset rests in the bar, with its battery'],
+    ['drives', 'Drives', 'A USB stick or disk plugged in, with Open and Eject; rests in the bar while plugged in'],
     ['locks', 'Caps Lock and Num Lock', 'A word when one is switched'],
-    ['dnd', 'Do not disturb', 'A word when it is switched'],
+    ['dnd', 'Do not disturb', 'Opens when switched on and rests in the bar while it is on'],
+    ['theme', 'Dark and light mode', 'A word when it is switched'],
     ['clipboard', 'Clipboard', 'A preview of what was copied (off at first: it speaks on every copy)'],
 ];
 
@@ -71,6 +74,25 @@ function switchRow(settings, key, title, subtitle = '') {
 }
 
 // A combo row for an enum key: choices [[nick, label], ...].
+// A switch row for one piece of the glance: it adds or takes its id from
+// the glance-items list.
+function glanceRow(settings, id, title, subtitle) {
+    const row = new Adw.SwitchRow({title, subtitle});
+    const sync = () => {
+        const on = settings.get_strv('glance-items').includes(id);
+        if (row.active !== on)
+            row.active = on;
+    };
+    sync();
+    row.connect('notify::active', () => {
+        const rest = settings.get_strv('glance-items').filter(item => item !== id);
+        settings.set_strv('glance-items', row.active ? [...rest, id] : rest);
+    });
+    const handler = settings.connect('changed::glance-items', sync);
+    row.connect('destroy', () => settings.disconnect(handler));
+    return row;
+}
+
 function choiceRow(settings, key, title, subtitle, choices) {
     const row = new Adw.ComboRow({title, subtitle, model: Gtk.StringList.new(choices.map(([, label]) => label))});
     const sync = () => {
@@ -133,6 +155,11 @@ export default class IslandsPreferences extends ExtensionPreferences {
             ['short', 'Shorter'], ['normal', 'Normal'], ['long', 'Longer'],
         ]));
         page.add(behaviour);
+
+        const glance = new Adw.PreferencesGroup({title: 'Glance on hover', description: 'What the empty island shows under the pointer, set into centred lines by topic. At most five lines show; what a computer does not have is left out.'});
+        for (const [id, title, subtitle] of GLANCE_PARTS)
+            glance.add(glanceRow(settings, id, title, subtitle));
+        page.add(glance);
 
         const activities = new Adw.PreferencesGroup({title: 'Activities', description: 'The order is fixed: a call before a recording, before a timer, and so on down this list.'});
         for (const [source, title, subtitle] of SOURCES)

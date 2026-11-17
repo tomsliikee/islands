@@ -48,7 +48,7 @@ export class WeatherSource {
         const forecast = own.temp !== null && own.sky ? null : nearest(Date.now(), this._forecasts(info))?.forecast;
         const guess = forecast ? reading(forecast) : {temp: null, sky: ''};
         const text = glanceText({temp: own.temp ?? guess.temp, sky: own.sky || guess.sky, rainIn: this._rain});
-        return text ? {icon: info.get_symbolic_icon_name(), text} : null;
+        return text ? {id: 'weather', icon: info.get_symbolic_icon_name(), text} : null;
     }
 
     _forecasts(info) {

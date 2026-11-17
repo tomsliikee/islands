@@ -81,6 +81,20 @@ export function machineText(torch) {
     return parts.length > 0 ? parts.join(' · ') : null;
 }
 
+// The glance's machine pieces: [{id: 'cpu' | 'gpu', icon, text}]. Heat
+// shows beside the load when `temps` is on and Torch knows it.
+export function machineParts(torch, temps = true) {
+    if (!torch)
+        return [];
+    const heat = celsius => (temps && celsius !== null ? ` ${Math.round(celsius)} °C` : '');
+    const parts = [];
+    if (torch.cpu !== null)
+        parts.push({id: 'cpu', icon: 'power-profile-performance-symbolic', text: `CPU ${Math.round(torch.cpu)} %${heat(torch.celsius)}`});
+    if (torch.gpu !== null)
+        parts.push({id: 'gpu', icon: 'power-profile-performance-symbolic', text: `GPU ${Math.round(torch.gpu)} %${heat(torch.gpuCelsius)}`});
+    return parts;
+}
+
 // One line of Steam's logs/content_log.txt about an app's state:
 // {appId, updating, running} or null for other lines.
 export function readSteamLine(line) {

@@ -155,4 +155,23 @@ export default async function ({island, settings, shot, sleep, note, moveTo, mov
     await sleep(3200);
     note(`privacy after 3.8 s: mode=${island._state.mode}`);
     await shot('fixes-privacy');
+
+    // Pulled sideways (the handler is called as the view does on a release
+    // after 40 px; a real mouse drag is not driven by this rig): what
+    // shows becomes a bubble, the empty island takes its place, a click on
+    // the bubble brings it back; on the empty island a pull does nothing.
+    for (const id of ['privacy:sharing', 'privacy:camera', 'privacy:microphone'])
+        island.remove(id);
+    island.set({id: 'media', kind: 'media', title: 'Midnight Drive', note: 'Low Tide', short: 'Midnight Drive', icon: 'audio-x-generic-symbolic'});
+    await sleep(900);
+    island._dragAway();
+    await sleep(900);
+    note(`pulled: main=${island._state.main?.id ?? 'none'} bubbles=${island.view.bubbleActors.length} ${geometry(island)}`);
+    await shot('fixes-pulled');
+    island._dragAway();
+    await sleep(300);
+    note(`pulled on the empty island: main=${island._state.main?.id ?? 'none'} bubbles=${island.view.bubbleActors.length}`);
+    island._bubble({activity: island._activities.get('media')}, Clutter.BUTTON_PRIMARY);
+    await sleep(900);
+    note(`bubble clicked: main=${island._state.main?.id} bubbles=${island.view.bubbleActors.length}`);
 }

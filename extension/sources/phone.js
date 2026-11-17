@@ -20,7 +20,7 @@ export class PhoneSource {
 
     get glance() {
         const text = this._island.allows('phone') ? phoneText(this._phone) : null;
-        return text ? {icon: 'phone-symbolic', text} : null;
+        return text ? {id: 'phone', icon: 'phone-symbolic', text} : null;
     }
 
     _read(first = false) {

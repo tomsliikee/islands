@@ -9,9 +9,10 @@
 // Lasting things in their fixed order: the higher one takes the island,
 // the next one sits beside it as a small bubble.
 // Islands' order: call > recording/camera > a timer running out >
-// notification > file > Claude waiting > music > progress. A notification
+// notification > file > Claude waiting > music > progress > a status
+// (do not disturb, a headset, a stick) > charging. A notification
 // is a hint and comes before everything that lasts except a call anyway.
-export const RANKS = {call: 7, recording: 6, privacy: 6, alarm: 5, timer: 5, file: 4, claude: 3, media: 2, progress: 1};
+export const RANKS = {call: 7, recording: 6, privacy: 6, alarm: 5, timer: 5, file: 4, claude: 3, media: 2, progress: 1, status: 0.5};
 
 const rankOf = activity => RANKS[activity.kind] ?? 0;
 
