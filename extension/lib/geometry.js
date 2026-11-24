@@ -64,7 +64,8 @@ export const OPENED = {
     status: [452, 78, 36],
 };
 
-// One more line of a message's body (13 px text) when it unfolds.
+// One more line of a message's body (13 px text) when it unfolds. Text does
+// not scale with the pill, so these px are added after scaling.
 export const NOTE_LINE = 17;
 
 // Lantern, grown out of the island.
@@ -98,7 +99,7 @@ export function shapeFor(look, state, pill, {duo = false, lines = 1} = {}) {
     if (state === 'opened') {
         const [width, height, radius] = OPENED[look] ?? OPENED.notification;
         const more = Math.max(0, Math.round(lines) - 1) * NOTE_LINE;
-        return {width: Math.round(width * scale), height: Math.round((height + more) * scale), radius: Math.round(radius * scale)};
+        return {width: Math.round(width * scale), height: Math.round(height * scale) + more, radius: Math.round(radius * scale)};
     }
     let width = COMPACT_WIDTH[duo && look === 'media' ? 'duo' : look] ?? COMPACT_WIDTH.idle;
     width = Math.round(width * scale);

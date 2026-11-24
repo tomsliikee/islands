@@ -21,6 +21,10 @@ const CONFLICTING = {
 import {GLANCE_PARTS} from './lib/glance.js';
 
 // Activity sources with a switch each, in the island's fixed order.
+// Sources whose message opens by itself and so may rest as a bubble after.
+const BUBBLE_AFTER = new Set(['call', 'privacy', 'timer', 'notification', 'events', 'file', 'claude-work', 'claude',
+    'torch', 'battery', 'weather', 'updates', 'drives', 'dnd', 'audio']);
+
 const SOURCES = [
     ['call', 'Calls', 'From the phone over NectarLink, Discord or a meeting'],
     ['privacy', 'Camera, microphone, screen sharing', 'Opens when one starts, then a bubble each while in use'],
@@ -144,6 +148,7 @@ export default class IslandsPreferences extends ExtensionPreferences {
             ['open', 'Open the activity'], ['app', 'Open its app'],
         ]));
         behaviour.add(switchRow(settings, 'hover-glance', 'Glance on hover', 'Next event, weather and stats while the island is empty'));
+        behaviour.add(switchRow(settings, 'full-message', 'Show the whole message', 'A message under the pointer unfolds to all its text; off: five lines at most'));
         behaviour.add(switchRow(settings, 'hover-open', 'Open on hover', 'After 400 ms, without a click'));
         behaviour.add(switchRow(settings, 'pointer-pull', 'Pointer pull', 'The pointer is drawn in slightly under the island, as on the MacBook'));
         behaviour.add(switchRow(settings, 'notifications', 'Notifications in the island', 'Replaces the banners at the top'));
@@ -219,15 +224,29 @@ export default class IslandsPreferences extends ExtensionPreferences {
         return group;
     }
 
+    // A source's row: its switch and, for what opens by itself, a second
+    // switch inside it: after its time it rests as a bubble.
     _sourceRow(settings, source, title, subtitle) {
-        const row = new Adw.SwitchRow({title, subtitle});
+        const expandable = BUBBLE_AFTER.has(source);
+        const row = expandable
+            ? new Adw.ExpanderRow({title, subtitle, show_enable_switch: true})
+            : new Adw.SwitchRow({title, subtitle});
+        const set = value => {
+            if (expandable)
+                row.enable_expansion = value;
+            else
+                row.active = value;
+        };
+        const get = () => (expandable ? row.enable_expansion : row.active);
+        if (expandable)
+            row.add_row(this._bubbleRow(settings, source));
         const sync = () => {
-            row.active = !settings.get_strv('disabled-sources').includes(source);
+            set(!settings.get_strv('disabled-sources').includes(source));
         };
         sync();
-        row.connect('notify::active', () => {
+        row.connect(expandable ? 'notify::enable-expansion' : 'notify::active', () => {
             const off = new Set(settings.get_strv('disabled-sources'));
-            if (row.active)
+            if (get())
                 off.delete(source);
             else
                 off.add(source);
@@ -236,6 +255,25 @@ export default class IslandsPreferences extends ExtensionPreferences {
                 settings.set_strv('disabled-sources', next);
         });
         const id = settings.connect('changed::disabled-sources', sync);
+        row.connect('destroy', () => settings.disconnect(id));
+        return row;
+    }
+
+    _bubbleRow(settings, source) {
+        const row = new Adw.SwitchRow({title: 'Then rest as a bubble', subtitle: 'After it has been open, it shrinks into a bubble beside the island instead of the island itself'});
+        const sync = () => {
+            const on = settings.get_strv('bubble-after').includes(source);
+            if (row.active !== on)
+                row.active = on;
+        };
+        sync();
+        row.connect('notify::active', () => {
+            const rest = settings.get_strv('bubble-after').filter(item => item !== source);
+            const next = row.active ? [...rest, source].sort() : rest;
+            if (next.join() !== settings.get_strv('bubble-after').join())
+                settings.set_strv('bubble-after', next);
+        });
+        const id = settings.connect('changed::bubble-after', sync);
         row.connect('destroy', () => settings.disconnect(id));
         return row;
     }

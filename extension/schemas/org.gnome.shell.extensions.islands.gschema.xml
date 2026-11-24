@@ -52,6 +52,11 @@
     </key>
 
     <!-- Behaviour -->
+    <key name="full-message" type="b">
+      <default>true</default>
+      <summary>Show the whole message</summary>
+      <description>A message the pointer holds unfolds to its whole text, as far as the screen allows. Off: five lines at most, ending in an ellipsis.</description>
+    </key>
     <key name="click" enum="org.gnome.shell.extensions.islands.click">
       <default>'open'</default>
       <summary>Click on the island</summary>
@@ -103,6 +108,12 @@
       <default>['clipboard']</default>
       <summary>Sources switched off</summary>
       <description>Names of activity sources that do not show in the island.</description>
+    </key>
+
+    <key name="bubble-after" type="as">
+      <default>[]</default>
+      <summary>Sources that rest as a bubble after opening</summary>
+      <description>Names of activity sources whose message, after it has been open for its time, shrinks into a bubble beside the island instead of the island itself.</description>
     </key>
 
     <key name="quick-note-file" type="s">

@@ -45,6 +45,18 @@ export function alertState(alert, now, {length = 'normal', hovered = false} = {}
     return alert.lasting ? 'compact' : 'gone';
 }
 
+// Whether a message that opened below the bar and whose time is over rests
+// as a bubble beside the island (the setting "bubble-after" names its
+// source) instead of going back into the island or leaving. Only what
+// opens by itself counts, and never while the pointer holds it.
+export function restsAsBubble(alert, now, {length = 'normal', hovered = false, enabled = false} = {}) {
+    if (!enabled || hovered || !(alert.hint || alert.opensFor))
+        return false;
+    if (!(OPENS.has(alert.kind) || alert.opens))
+        return false;
+    return alertState({...alert, lasting: alert.lasting || !alert.hint}, now, {length}) !== 'opened';
+}
+
 // When to look again (ms from now), or null when nothing changes by time.
 // The pointer leaving restarts nothing: the message shrinks at once if its
 // time is over.

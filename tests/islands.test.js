@@ -1,4 +1,4 @@
-import {alertState, nextCheck, openMs} from '../extension/lib/alerts.js';
+import {alertState, nextCheck, openMs, restsAsBubble} from '../extension/lib/alerts.js';
 import {arrange, bubbleLimit, bubbleSlots, overflowText} from '../extension/lib/bubbles.js';
 import {BUBBLE_GAP, layout, pillHeight, pillTop, radiusAt, shapeFor} from '../extension/lib/geometry.js';
 import {fresh, motionOn, pollAllowed, tickMs, tickRate} from '../extension/lib/power.js';
@@ -91,6 +91,17 @@ test('open times', () => equal(['notification', 'call', 'file'].map(kind => open
 test('open time follows the length setting', () => equal([openMs('notification', 'short'), openMs('notification', 'long')], [3000, 8000]));
 test('a notification opens, then goes', () => equal(
     [alertState({kind: 'notification', at: 0}, 4999), alertState({kind: 'notification', at: 0}, 5000)], ['opened', 'gone']));
+const rests = (alert, now, extra = {}) => restsAsBubble(alert, now, {enabled: true, ...extra});
+test('bubble after: a message rests as a bubble when its time is over', () => equal(
+    [rests({kind: 'notification', hint: true, at: 0}, 4999), rests({kind: 'notification', hint: true, at: 0}, 5000)], [false, true]));
+test('bubble after: a lasting thing that opened rests too', () => equal(
+    rests({kind: 'privacy', opensFor: true, opens: true, lasting: true, at: 0, duration: 3000}, 3000), true));
+test('bubble after: off, held by the pointer, or not opening: no', () => equal([
+    restsAsBubble({kind: 'notification', hint: true, at: 0}, 9000),
+    rests({kind: 'notification', hint: true, at: 0}, 9000, {hovered: true}),
+    rests({kind: 'status', hint: true, at: 0}, 9000),
+    rests({kind: 'media', at: 0}, 9000)], [false, false, false, false]));
+test('bubble after: a sticky message stays open', () => equal(rests({kind: 'notification', hint: true, sticky: true, at: 0}, 99999), false));
 test('a ringing call shrinks to compact and stays', () => equal(alertState({kind: 'call', at: 0, lasting: true}, 6000), 'compact'));
 test('the pointer holds it open', () => equal(alertState({kind: 'notification', at: 0}, 99999, {hovered: true}), 'opened'));
 test('the pointer holds a volume change opened', () => equal(alertState({kind: 'osd', at: 0}, 99999, {hovered: true}), 'opened'));

@@ -7,7 +7,10 @@
 
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
+import Pango from 'gi://Pango';
 import St from 'gi://St';
+
+import {NOTE_LINE} from '../../lib/geometry.js';
 
 const looks = new Map();
 
@@ -84,8 +87,12 @@ export const GENERIC = {
         // Under the pointer a message shows its whole body (the island has
         // grown by its lines).
         if (note && activity.fullText) {
-            note.clutter_text.ellipsize = 0; // Pango.EllipsizeMode.NONE
+            // As many lines as the island grew by; a longer text ends in "…"
+            // instead of running into the buttons or out of the island.
             note.clutter_text.line_wrap = true;
+            note.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+            if (activity.noteLines)
+                note.set_height(activity.noteLines * NOTE_LINE);
         }
         if (note)
             text.add_child(note);

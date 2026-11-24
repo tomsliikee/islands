@@ -125,9 +125,9 @@ export class IslandView {
         return this._bubbles.find(bubble => target && bubble.actor.contains(target))?.slot ?? null;
     }
 
-    // How many lines (1 to MAX_LINES) a message's body takes in an opened
+    // How many lines (1 to max, 5 by default) a message's body takes in an opened
     // island of this width, measured with the opened look's own style.
-    noteLines(text, width) {
+    noteLines(text, width, max = MAX_LINES) {
         if (!this._measure) {
             this._measure = new St.Label({style_class: 'islands-opened-note', opacity: 0, reactive: false});
             this._measure.clutter_text.line_wrap = true;
@@ -142,7 +142,7 @@ export class IslandView {
         const [, line] = measure.get_preferred_height(room);
         measure.text = text;
         const [, all] = measure.get_preferred_height(room);
-        return Math.max(1, Math.min(MAX_LINES, Math.round(all / Math.max(1, line))));
+        return Math.max(1, Math.min(max, Math.round(all / Math.max(1, line))));
     }
 
     // Forgets a hover St kept from before; the next enter sets it anew.

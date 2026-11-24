@@ -13,9 +13,9 @@ import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import {alertState, nextCheck} from './lib/alerts.js';
+import {alertState, nextCheck, restsAsBubble} from './lib/alerts.js';
 import {arrange, bubbleSlots} from './lib/bubbles.js';
-import {layout, pillHeight, shapeFor} from './lib/geometry.js';
+import {layout, NOTE_LINE, pillHeight, shapeFor} from './lib/geometry.js';
 import {accumulate, scrollIntent} from './lib/rank.js';
 import {motionOn} from './lib/power.js';
 import {setMotion} from './views/choreo.js';
@@ -50,6 +50,9 @@ export class Island {
         this._battery = battery;
         this._activities = new Map();
         this._dismissed = new Set();
+        // Lasting things that rested as a bubble after opening: id -> the
+        // opening's time, so each opening rests once.
+        this._bubbled = new Map();
         this._focus = null;
         this._expanded = null;
         this._hovered = false;
@@ -103,6 +106,9 @@ export class Island {
         const before = this._activities.get(activity.id);
         // An updated message keeps its time; a new one starts its own.
         const at = activity.at ?? (activity.hint && before ? before.at : Date.now());
+        // A message that rested as a bubble gives way to the new one.
+        if (before?.bubbled)
+            this._dismissed.delete(activity.id);
         this._activities.set(activity.id, {...activity, at});
         this.update();
     }
@@ -221,6 +227,7 @@ export class Island {
 
     _forget(id) {
         this._dismissed.delete(id);
+        this._bubbled.delete(id);
         if (this._expanded === id)
             this._expanded = null;
         if (this._focus === id)
@@ -236,6 +243,23 @@ export class Island {
         const bar = Main.panel.height || 32;
         const pill = pillHeight(bar, settings.get_string('size'));
         const length = settings.get_string('alert-length');
+
+        // What opened by itself and whose time is over rests as a bubble
+        // when its source is set to (and the bar has room for bubbles).
+        const resting = settings.get_int('bubbles') > 0 ? new Set(settings.get_strv('bubble-after')) : new Set();
+        for (const activity of [...this._activities.values()]) {
+            if (!restsAsBubble(activity, now, {length, hovered: this._holds(activity), enabled: resting.has(activity.source ?? activity.kind)}))
+                continue;
+            if (activity.hint) {
+                // A short message stays as what lasts, until it is sent away.
+                this._activities.set(activity.id, {...activity, hint: false, lasting: true, bubbled: true});
+                this._dismissed.add(activity.id);
+            } else if (this._bubbled.get(activity.id) !== activity.at) {
+                // Once per opening: a click on the bubble may bring it back.
+                this._bubbled.set(activity.id, activity.at);
+                this._dismissed.add(activity.id);
+            }
+        }
 
         // Short messages whose time is over leave.
         for (const activity of [...this._activities.values()]) {
@@ -298,7 +322,7 @@ export class Island {
         // A message the pointer holds shows its whole text: the island
         // grows by the lines its body needs.
         const lines = mode === 'opened' && activity && this._holds(activity) && activity.note && FULL_TEXT.has(look)
-            ? this.view.noteLines(activity.note, shapeFor(look, 'opened', pill).width)
+            ? this.view.noteLines(activity.note, shapeFor(look, 'opened', pill).width, this._maxLines(look, pill, monitor))
             : 1;
         const shape = shapeFor(look, mode === 'idle' ? 'compact' : mode, pill, {duo, lines});
         const compactWidth = shapeFor(main ? main.look ?? main.kind : 'idle', 'compact', pill, {duo}).width;
@@ -323,7 +347,7 @@ export class Island {
         // What the content is built as: a look may take a new key in place
         // while this stays the same.
         const base = activity ? `${activity.id}:${mode}:${shape.width}:${shape.height}:${look}` : key;
-        const shown = lines > 1 ? {...activity, fullText: true} : activity;
+        const shown = lines > 1 ? {...activity, fullText: true, noteLines: lines} : activity;
         return {frame, rest, key: `${key}:${lines}`, base, activity: shown, mode, kind, slots, visible, pill, main, peek, instant: Boolean(this._instant)};
     }
 
@@ -437,6 +461,15 @@ export class Island {
     // The pointer holds a message open, also one that had shrunk already
     // (it opens again after HOVER_OPEN_MS, so a pointer on its way past
     // does not move buttons under itself).
+    // The most lines an unfolded message may take: five, or (whole message
+    // on) as many as fit in 60 % of the monitor's height.
+    _maxLines(look, pill, monitor) {
+        if (!this._settings.get_boolean('full-message'))
+            return 5;
+        const room = (monitor?.height ?? 800) * 0.6 - shapeFor(look, 'opened', pill).height;
+        return Math.max(5, Math.floor(room / NOTE_LINE) + 1);
+    }
+
     _holds(activity) {
         return this._hovered && this._held === activity.id;
     }
@@ -709,7 +742,12 @@ export class Island {
         const activity = slot?.activity;
         if (!activity)
             return;
-        if (button === Clutter.BUTTON_SECONDARY) {
+        if (button === Clutter.BUTTON_SECONDARY && activity.bubbled) {
+            // A message that rested here goes for good.
+            this._activities.delete(activity.id);
+            this._forget(activity.id);
+            activity.onDismiss?.();
+        } else if (button === Clutter.BUTTON_SECONDARY) {
             this._dismissed.add(activity.id);
         } else {
             this._dismissed.delete(activity.id);
