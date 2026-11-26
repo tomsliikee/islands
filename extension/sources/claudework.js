@@ -128,7 +128,7 @@ export class ClaudeWorkSource {
         const done = allowed ? finished(this._working, idle) : [];
         for (const id of done) {
             const session = this._working.get(id);
-            this._island.set({id: `${DONE_PREFIX}${id}`, kind: 'notification', hint: true, source: 'claude-work', at: now,
+            this._island.set({id: `${DONE_PREFIX}${id}`, kind: 'notification', hint: true, bubble: false, source: 'claude-work', at: now,
                 duration: DONE_MS, icon: ICON, color: CLAUDE, title: 'Claude is done', short: 'Done',
                 note: `${session.name} · ${clockText(now - session.since)}`});
         }
@@ -137,6 +137,7 @@ export class ClaudeWorkSource {
             const before = this._working.get(session.id);
             // The time counts from the start of the work, not from the
             // last wait for an answer.
+            this._island.remove(`${DONE_PREFIX}${session.id}`);
             next.set(session.id, before ? {...session, since: before.since} : session);
         }
         for (const id of this._working.keys()) {

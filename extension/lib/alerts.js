@@ -50,7 +50,9 @@ export function alertState(alert, now, {length = 'normal', hovered = false} = {}
 // source) instead of going back into the island or leaving. Only what
 // opens by itself counts, and never while the pointer holds it.
 export function restsAsBubble(alert, now, {length = 'normal', hovered = false, enabled = false} = {}) {
-    if (!enabled || hovered || !(alert.hint || alert.opensFor))
+    // bubble: false marks an event that is over once told ("Done"): it
+    // leaves instead of piling up as a bubble.
+    if (!enabled || hovered || alert.bubble === false || !(alert.hint || alert.opensFor))
         return false;
     if (!(OPENS.has(alert.kind) || alert.opens))
         return false;

@@ -101,6 +101,8 @@ test('bubble after: off, held by the pointer, or not opening: no', () => equal([
     rests({kind: 'notification', hint: true, at: 0}, 9000, {hovered: true}),
     rests({kind: 'status', hint: true, at: 0}, 9000),
     rests({kind: 'media', at: 0}, 9000)], [false, false, false, false]));
+test('bubble after: a finished-event message (bubble: false) just goes', () => equal(
+    rests({kind: 'notification', hint: true, bubble: false, at: 0}, 9000), false))
 test('bubble after: a sticky message stays open', () => equal(rests({kind: 'notification', hint: true, sticky: true, at: 0}, 99999), false));
 test('a ringing call shrinks to compact and stays', () => equal(alertState({kind: 'call', at: 0, lasting: true}, 6000), 'compact'));
 test('the pointer holds it open', () => equal(alertState({kind: 'notification', at: 0}, 99999, {hovered: true}), 'opened'));
